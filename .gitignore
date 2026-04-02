@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.vsix
+.vscode-test/
+.claude
+init_prompt.md
+.vscode/

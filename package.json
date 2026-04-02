@@ -1,0 +1,67 @@
+{
+  "name": "code-nodes",
+  "displayName": "Code Nodes",
+  "publisher": "CodeChomper",
+  "description": "Block-based markdown editor with wiki-link graph visualization",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Notebooks",
+    "Visualization"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "codeNodes.markdownEditor",
+        "displayName": "Code Nodes Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "codeNodes.openGraph",
+        "title": "Code Nodes: Open Graph View",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "codeNodes.newNote",
+        "title": "Code Nodes: New Note"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "codeNodes.openGraph",
+          "group": "navigation",
+          "when": "activeCustomEditorId == 'codeNodes.markdownEditor'"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "node esbuild.mjs --production && vsce package --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.7.1",
+    "cytoscape": "^3.29.0",
+    "cytoscape-dagre": "^2.5.0",
+    "cytoscape-fcose": "^2.2.0",
+    "dagre": "^0.8.5",
+    "esbuild": "^0.21.0",
+    "marked": "^12.0.0",
+    "typescript": "^5.4.0"
+  }
+}

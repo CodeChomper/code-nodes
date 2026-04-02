@@ -1,0 +1,73 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, #cccccc);
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#cy-container {
+  flex: 1;
+  min-height: 0; /* Required for cytoscape to size correctly inside flexbox */
+}
+
+#legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: var(--vscode-sideBar-background, #252526);
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  font-size: 11px;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+.dot.active  { background: #8cc641; }
+.dot.exists  { background: #bf4e30; }
+.dot.ghost   { background: #666666; }
+
+#controls {
+  padding: 6px 12px;
+  background: var(--vscode-sideBar-background, #252526);
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+#controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #aaa);
+  white-space: nowrap;
+}
+
+#controls input[type="range"] {
+  width: 80px;
+  accent-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.val {
+  min-width: 32px;
+  text-align: right;
+  color: var(--vscode-editor-foreground, #ccc);
+}
