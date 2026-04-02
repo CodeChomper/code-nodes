@@ -2,10 +2,20 @@
 /* global CodeNodesEditorVendor, acquireVsCodeApi */
 
 const vscode = acquireVsCodeApi();
-const { marked } = CodeNodesEditorVendor;
+const { marked, hljs } = CodeNodesEditorVendor;
 
-// Configure marked: no automatic <p> wrapping for single-line blocks
-marked.setOptions({ breaks: true, gfm: true });
+// Configure marked: use highlight.js for fenced code blocks, gfm for wiki-friendly parsing
+marked.use({
+  breaks: true,
+  gfm: true,
+  renderer: {
+    code(code, lang) {
+      const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+      const highlighted = hljs.highlight(code, { language }).value;
+      return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+    },
+  },
+});
 
 // ─── State ────────────────────────────────────────────────────────────────────
 

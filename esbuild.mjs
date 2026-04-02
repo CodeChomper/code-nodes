@@ -1,4 +1,5 @@
 import * as esbuild from 'esbuild';
+import * as fs from 'fs';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -36,6 +37,13 @@ const graphVendorConfig = {
   target: 'es2022',
   minify: production,
 };
+
+// Copy highlight.js theme into dist so the editor webview can load it as a local resource
+fs.mkdirSync('dist/media/editor', { recursive: true });
+fs.copyFileSync(
+  'node_modules/highlight.js/styles/atom-one-dark.min.css',
+  'dist/media/editor/hljs-theme.css'
+);
 
 if (watch) {
   const [extCtx, editorCtx, graphCtx] = await Promise.all([

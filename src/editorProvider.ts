@@ -106,6 +106,15 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
       }
     });
 
+    // When the panel is brought into focus (including when already-open files are
+    // revealed by clicking a graph node), mark this note as active and refresh.
+    webviewPanel.onDidChangeViewState(e => {
+      if (e.webviewPanel.active) {
+        this.noteGraph.setActiveNote(document.uri);
+        this.graphProvider.refresh();
+      }
+    });
+
     webviewPanel.onDidDispose(() => {
       this.panels.delete(webviewPanel);
       changeSubscription.dispose();
@@ -159,6 +168,15 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
         'editor.css'
       )
     );
+    const hljsCssUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this.context.extensionUri,
+        'dist',
+        'media',
+        'editor',
+        'hljs-theme.css'
+      )
+    );
 
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -170,6 +188,7 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
                  script-src 'nonce-${nonce}';
                  style-src ${webview.cspSource} 'unsafe-inline';">
   <link rel="stylesheet" href="${editorCssUri}">
+  <link rel="stylesheet" href="${hljsCssUri}">
   <title>Code Nodes Editor</title>
 </head>
 <body>
