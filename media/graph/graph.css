@@ -63,7 +63,29 @@ body {
 
 #controls input[type="range"] {
   width: 80px;
-  accent-color: var(--vscode-focusBorder, #007fd4);
+  accent-color: #bf4e30;
+}
+
+#controls input[type="range"]::-webkit-slider-runnable-track {
+  background: #666666;
+  border-radius: 2px;
+}
+
+#fit-btn {
+  padding: 2px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  color: #ffffff;
+  background: #4a8c2a;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#fit-btn:hover {
+  background: #5aa832;
 }
 
 .val {

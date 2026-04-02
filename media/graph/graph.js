@@ -14,6 +14,8 @@ let firstRender = true;
 let layoutTimer = null;
 let activeLayout = null;
 let dragLastPos = null;
+let pendingViewport = null;   // viewport to restore after the next layout/overlap pass
+let viewportSaveTimer = null; // debounce handle for saveViewport messages
 
 // How strongly connected nodes follow the dragged node (0 = none, 1 = perfectly track)
 const SPRING_FACTOR = 0.28;
@@ -76,12 +78,22 @@ function initCytoscape() {
         },
       },
       {
-        // First-level neighbours of the selected node
-        selector: 'node.neighbor-highlight',
+        // First-level neighbours of the selected node (real notes)
+        selector: 'node[!isGhost].neighbor-highlight',
         style: {
           'background-color': '#e07a52',
           'border-width': 2.5,
           'border-color': '#f4a47a',
+          'border-style': 'dashed',
+        },
+      },
+      {
+        // First-level neighbours of the selected node (ghost / unwritten notes)
+        selector: 'node[?isGhost].neighbor-highlight',
+        style: {
+          'background-color': '#888888',
+          'border-width': 2.5,
+          'border-color': '#aaaaaa',
           'border-style': 'dashed',
         },
       },
@@ -139,6 +151,8 @@ function initCytoscape() {
   cy.on('dragfree', 'node', evt => {
     dragLastPos = null;
     resolveOverlaps();
+    // Persist updated positions after the user manually moves a node
+    savePositions();
   });
 
   // ── Neighbour highlighting ────────────────────────────────────────────────
@@ -164,6 +178,9 @@ function initCytoscape() {
     cy.nodes().toggleClass('labels-hidden', cy.zoom() < LABEL_HIDE_ZOOM);
   }
   cy.on('zoom', updateLabelVisibility);
+
+  // ── Viewport persistence ──────────────────────────────────────────────────
+  cy.on('zoom pan', scheduleViewportSave);
 
   // ── Hover tooltip (shows full title at any zoom level) ───────────────────
   const tooltip = document.createElement('div');
@@ -265,7 +282,57 @@ function nodeSize(connectionCount) {
   return Math.min(20 + connectionCount * 5, 64);
 }
 
-function applyGraphData(data, forces) {
+/** Apply pendingViewport to cytoscape (if set) and clear it. */
+function applyPendingViewport() {
+  if (!pendingViewport) return;
+  cy.zoom(pendingViewport.zoom);
+  cy.pan({ x: pendingViewport.panX, y: pendingViewport.panY });
+  pendingViewport = null;
+}
+
+/**
+ * Debounced save of the current zoom + pan.
+ * Skips silently while a layout is still animating so we don't capture
+ * intermediate camera positions.
+ */
+function scheduleViewportSave() {
+  clearTimeout(viewportSaveTimer);
+  viewportSaveTimer = setTimeout(() => {
+    if (activeLayout) return; // layout still running — wait for it to finish
+    vscode.postMessage({
+      type: 'saveViewport',
+      viewport: { zoom: cy.zoom(), panX: cy.pan().x, panY: cy.pan().y },
+    });
+  }, 800);
+}
+
+function savePositions() {
+  const positions = {};
+  cy.nodes().forEach(n => {
+    const pos = n.position();
+    positions[n.data('displayName')] = {
+      x: +pos.x.toFixed(2),
+      y: +pos.y.toFixed(2),
+    };
+  });
+  vscode.postMessage({ type: 'savePositions', positions });
+}
+
+/**
+ * Select the currently active (open) node so its neighbours are highlighted
+ * automatically. Deselects everything first so stale selections don't linger.
+ */
+function selectActiveNode() {
+  cy.nodes().unselect();
+  const active = cy.nodes('[?isActive]');
+  if (active.length) active.select();
+}
+
+function applyGraphData(data, forces, savedPositions, savedViewport) {
+  savedPositions = savedPositions || {};
+  // Store viewport for restoration after layout/overlap pass.
+  // Clear it for full fresh layouts (fit:true will handle the camera itself).
+  pendingViewport = savedViewport || null;
   currentForces = { ...forces };
   updateSliderUI(forces);
 
@@ -277,6 +344,8 @@ function applyGraphData(data, forces) {
         displayName: n.displayName,
         color: nodeColor(n),
         size: nodeSize(n.connectionCount),
+        isGhost:  n.isGhost  || false,
+        isActive: n.isActive || false,
       },
     })),
     ...data.edges.map(e => ({
@@ -289,6 +358,7 @@ function applyGraphData(data, forces) {
     })),
   ];
 
+  // Snapshot in-memory positions before wiping elements
   const prevPositions = {};
   if (cy) {
     cy.nodes().forEach(n => { prevPositions[n.id()] = { ...n.position() }; });
@@ -297,11 +367,52 @@ function applyGraphData(data, forces) {
   cy.elements().remove();
   cy.add(elements);
 
-  cy.nodes().forEach(n => {
-    if (prevPositions[n.id()]) n.position(prevPositions[n.id()]);
-  });
+  const hasSaved = Object.keys(savedPositions).length > 0;
 
-  runLayout();
+  if (hasSaved) {
+    // Restore positions from file; scatter any brand-new nodes near centre
+    const pan  = cy.pan();
+    const zoom = cy.zoom();
+    const cx   = (cy.width()  / 2 - pan.x) / zoom;
+    const cy_  = (cy.height() / 2 - pan.y) / zoom;
+
+    let newNodeCount = 0;
+    cy.nodes().forEach(n => {
+      const saved = savedPositions[n.data('displayName')];
+      if (saved) {
+        n.position({ x: saved.x, y: saved.y });
+      } else {
+        // New note with no saved position — seed it near the viewport centre
+        n.position({
+          x: cx + (Math.random() - 0.5) * 90,
+          y: cy_ + (Math.random() - 0.5) * 90,
+        });
+        newNodeCount++;
+      }
+    });
+
+    firstRender = false; // keep positions; don't scatter everything again
+
+    if (newNodeCount > 0) {
+      // Integrate the new nodes alongside the existing layout;
+      // layoutstop will call applyPendingViewport() to restore the camera.
+      runLayout();
+    } else {
+      // All positions restored — just tidy up any overlap, then restore camera.
+      resolveOverlaps();
+      cy.nodes().toggleClass('labels-hidden', cy.zoom() < LABEL_HIDE_ZOOM);
+      applyPendingViewport();
+      selectActiveNode();
+    }
+  } else {
+    // No settings file yet — fall back to in-memory positions and run layout.
+    // A full fresh layout uses fit:true, so don't override the camera.
+    pendingViewport = null;
+    cy.nodes().forEach(n => {
+      if (prevPositions[n.id()]) n.position(prevPositions[n.id()]);
+    });
+    runLayout();
+  }
 }
 
 function runLayout() {
@@ -313,6 +424,10 @@ function runLayout() {
   const isRandom = firstRender;
 
   if (isRandom) {
+    // Full fresh layout — fCoSE will fit the graph to the viewport itself,
+    // so any saved viewport would just be overridden; discard it.
+    pendingViewport = null;
+
     // Cytoscape's default pan puts graph-origin (0,0) at the top-left of the
     // container, so unpositioned nodes all appear to start there before the
     // layout runs. Instead, scatter every node in a small cluster around the
@@ -356,6 +471,12 @@ function runLayout() {
     resolveOverlaps();
     // Re-apply label visibility after layout adds/repositions nodes
     cy.nodes().toggleClass('labels-hidden', cy.zoom() < LABEL_HIDE_ZOOM);
+    // Restore saved camera position (no-op if pendingViewport was cleared)
+    applyPendingViewport();
+    // Select the active node so neighbours are highlighted from the start
+    selectActiveNode();
+    // Persist final positions to graph_settings.jsonc
+    savePositions();
   });
   layout.run();
   firstRender = false;
@@ -394,6 +515,15 @@ for (const id of SLIDER_IDS) {
   });
 }
 
+// ─── Fit button ───────────────────────────────────────────────────────────────
+
+document.getElementById('fit-btn').addEventListener('click', () => {
+  if (cy) {
+    cy.fit(undefined, 60); // 60 px padding, same as the layout
+    scheduleViewportSave();
+  }
+});
+
 // ─── Messages ─────────────────────────────────────────────────────────────────
 
 /**
@@ -406,14 +536,18 @@ function updateNodeVisuals(data) {
     if (node.length) {
       node.data('color', nodeColor(n));
       node.data('size', nodeSize(n.connectionCount));
+      node.data('isGhost',  n.isGhost  || false);
+      node.data('isActive', n.isActive || false);
     }
   });
+  // Re-evaluate selection in case the active file changed
+  selectActiveNode();
 }
 
 window.addEventListener('message', event => {
   const msg = event.data;
   if (msg.type === 'graphData') {
-    applyGraphData(msg.data, msg.forces);
+    applyGraphData(msg.data, msg.forces, msg.savedPositions, msg.savedViewport);
   } else if (msg.type === 'graphUpdate') {
     updateNodeVisuals(msg.data);
   }
