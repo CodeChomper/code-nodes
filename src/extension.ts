@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Command: open graph view beside the editor
   context.subscriptions.push(
     vscode.commands.registerCommand('codeNodes.openGraph', () => {
-      graphProvider.show();
+      graphProvider.toggle();
     })
   );
 

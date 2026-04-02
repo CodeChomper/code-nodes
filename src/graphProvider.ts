@@ -37,6 +37,14 @@ export class GraphProvider {
     private readonly noteGraph: NoteGraph
   ) {}
 
+  toggle(): void {
+    if (this.panel) {
+      this.panel.dispose();
+      return;
+    }
+    this.show();
+  }
+
   show(): void {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.Beside, true);

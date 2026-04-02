@@ -37,6 +37,13 @@
         "title": "Code Nodes: New Note"
       }
     ],
+    "keybindings": [
+      {
+        "command": "codeNodes.openGraph",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g"
+      }
+    ],
     "menus": {
       "editor/title": [
         {

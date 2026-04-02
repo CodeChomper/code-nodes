@@ -18,6 +18,9 @@ let dragLastPos = null;
 // How strongly connected nodes follow the dragged node (0 = none, 1 = perfectly track)
 const SPRING_FACTOR = 0.28;
 
+// Zoom level below which node labels are hidden (keeps the overview uncluttered)
+const LABEL_HIDE_ZOOM = 0.5;
+
 // ─── Cytoscape Init ───────────────────────────────────────────────────────────
 
 function initCytoscape() {
@@ -72,6 +75,21 @@ function initCytoscape() {
           'target-arrow-color': '#888888',
         },
       },
+      {
+        // First-level neighbours of the selected node
+        selector: 'node.neighbor-highlight',
+        style: {
+          'background-color': '#e07a52',
+          'border-width': 2.5,
+          'border-color': '#f4a47a',
+          'border-style': 'dashed',
+        },
+      },
+      {
+        // Applied when zoomed out past LABEL_HIDE_ZOOM — hides text to reduce clutter
+        selector: 'node.labels-hidden',
+        style: { 'label': '' },
+      },
     ],
     wheelSensitivity: 0.3,
     minZoom: 0.1,
@@ -115,39 +133,72 @@ function initCytoscape() {
     });
   });
 
-  // On release: pin the dragged node and run a brief settle pass
+  // On release: just resolve any overlaps caused by the drag.
+  // A fCoSE settle pass was here previously but its gravity force caused the
+  // entire graph to drift down-left with each drag operation.
   cy.on('dragfree', 'node', evt => {
     dragLastPos = null;
-    const node = evt.target;
-    node.lock();
-
-    const settle = cy.layout({
-      name: 'fcose',
-      quality: 'proof',
-      animate: true,
-      animationDuration: 900,
-      animationEasing: 'ease-in-out',
-      fit: false,
-      randomize: false,
-      nodeRepulsion: () => currentForces.repulsion,
-      idealEdgeLength: () => currentForces.edgeLength,
-      gravity: currentForces.gravity,
-      gravityRange: 6,
-      initialEnergyOnIncremental: currentForces.damping,
-      nodeOverlap: 40,
-      nodeSeparation: 150,
-      numIter: 3000,
-      uniformNodeDimensions: false,
-      tile: false,
-    });
-
-    settle.on('layoutstop', () => {
-      node.unlock();
-      resolveOverlaps();
-    });
-    activeLayout = settle;
-    settle.run();
+    resolveOverlaps();
   });
+
+  // ── Neighbour highlighting ────────────────────────────────────────────────
+  function refreshNeighborHighlight() {
+    cy.nodes().removeClass('neighbor-highlight');
+    const selected = cy.nodes(':selected');
+    if (selected.length > 0) {
+      // Highlight direct neighbours that are not themselves selected
+      selected.neighborhood('node').not(':selected').addClass('neighbor-highlight');
+    }
+  }
+
+  cy.on('select unselect', 'node', refreshNeighborHighlight);
+
+  // Clicking the background deselects everything and clears highlights
+  cy.on('tap', evt => {
+    if (evt.target === cy) refreshNeighborHighlight();
+  });
+
+  // ── Zoom-dependent label visibility ──────────────────────────────────────
+  // Re-evaluate on every zoom change and apply to any newly added nodes too.
+  function updateLabelVisibility() {
+    cy.nodes().toggleClass('labels-hidden', cy.zoom() < LABEL_HIDE_ZOOM);
+  }
+  cy.on('zoom', updateLabelVisibility);
+
+  // ── Hover tooltip (shows full title at any zoom level) ───────────────────
+  const tooltip = document.createElement('div');
+  tooltip.id = 'node-tooltip';
+  document.body.appendChild(tooltip);
+
+  cy.on('mouseover', 'node', evt => {
+    tooltip.textContent = evt.target.data('displayName');
+    tooltip.style.display = 'block';
+  });
+
+  // Track the cursor via document mousemove so the tooltip follows smoothly
+  document.addEventListener('mousemove', e => {
+    if (tooltip.style.display !== 'none') {
+      // Keep tooltip inside the window on the right/bottom edges
+      const pad = 16;
+      const tw  = tooltip.offsetWidth;
+      const th  = tooltip.offsetHeight;
+      const left = e.clientX + 14 + tw > window.innerWidth
+        ? e.clientX - tw - 6
+        : e.clientX + 14;
+      const top = e.clientY - 10 + th > window.innerHeight
+        ? e.clientY - th - 6
+        : e.clientY - 10;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top  = `${top}px`;
+    }
+  });
+
+  cy.on('mouseout', 'node', () => {
+    tooltip.style.display = 'none';
+  });
+
+  // Hide tooltip while dragging so it doesn't get in the way
+  cy.on('grabon', () => { tooltip.style.display = 'none'; });
 }
 
 // ─── Collision Avoidance ─────────────────────────────────────────────────────
@@ -261,6 +312,23 @@ function runLayout() {
 
   const isRandom = firstRender;
 
+  if (isRandom) {
+    // Cytoscape's default pan puts graph-origin (0,0) at the top-left of the
+    // container, so unpositioned nodes all appear to start there before the
+    // layout runs. Instead, scatter every node in a small cluster around the
+    // viewport centre so fCoSE spreads them outward from the middle.
+    const pan  = cy.pan();
+    const zoom = cy.zoom();
+    const cx   = (cy.width()  / 2 - pan.x) / zoom;
+    const cy_  = (cy.height() / 2 - pan.y) / zoom;
+    cy.nodes().forEach(n => {
+      n.position({
+        x: cx + (Math.random() - 0.5) * 90,
+        y: cy_ + (Math.random() - 0.5) * 90,
+      });
+    });
+  }
+
   const layout = cy.layout({
     name: 'fcose',
     quality: 'proof',
@@ -269,7 +337,7 @@ function runLayout() {
     animationEasing: 'ease-in-out',
     fit: isRandom,
     padding: 60,
-    randomize: isRandom,
+    randomize: true,   // initial positions set manually above; fCoSE spreads from there
     nodeRepulsion: () => currentForces.repulsion,
     idealEdgeLength: () => currentForces.edgeLength,
     gravity: currentForces.gravity,
@@ -279,15 +347,15 @@ function runLayout() {
     nodeSeparation: 150,
     numIter: 5000,
     uniformNodeDimensions: false,
-    tile: isRandom,
-    tilingPaddingVertical: 50,
-    tilingPaddingHorizontal: 50,
+    tile: false,
   });
 
   activeLayout = layout;
   layout.on('layoutstop', () => {
     if (activeLayout === layout) activeLayout = null;
     resolveOverlaps();
+    // Re-apply label visibility after layout adds/repositions nodes
+    cy.nodes().toggleClass('labels-hidden', cy.zoom() < LABEL_HIDE_ZOOM);
   });
   layout.run();
   firstRender = false;

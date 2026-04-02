@@ -71,3 +71,21 @@ body {
   text-align: right;
   color: var(--vscode-editor-foreground, #ccc);
 }
+
+/* Node hover tooltip */
+#node-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  background: var(--vscode-editorHoverWidget-background, #252526);
+  color: var(--vscode-editorHoverWidget-foreground, #cccccc);
+  border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+  border-radius: 4px;
+  padding: 5px 9px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  max-width: 280px;
+  word-break: break-word;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
