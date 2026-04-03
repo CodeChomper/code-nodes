@@ -45,6 +45,10 @@ fs.copyFileSync(
   'dist/media/editor/hljs-theme.css'
 );
 
+// Copy dictionary files into dist so the extension process can load them at runtime
+fs.copyFileSync('node_modules/dictionary-en/index.aff', 'dist/en_US.aff');
+fs.copyFileSync('node_modules/dictionary-en/index.dic', 'dist/en_US.dic');
+
 if (watch) {
   const [extCtx, editorCtx, graphCtx] = await Promise.all([
     esbuild.context(extensionConfig),

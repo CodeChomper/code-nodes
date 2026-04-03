@@ -10,3 +10,4 @@ tsconfig.json
 **/*.ts
 !dist/**
 !media/**
+tmp_images/**

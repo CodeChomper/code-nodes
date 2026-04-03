@@ -1,6 +1,43 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { NoteGraph } from './noteGraph';
 import { GraphProvider } from './graphProvider';
+
+// ─── Spell checker (module-level singleton, shared across all editor instances)
+
+type SpellChecker = { correct(word: string): boolean; suggest(word: string): string[] };
+let spellChecker: SpellChecker | null = null;
+
+function loadSpellChecker(extensionPath: string): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nspell = require('nspell');
+    const aff = fs.readFileSync(path.join(extensionPath, 'dist', 'en_US.aff'));
+    const dic = fs.readFileSync(path.join(extensionPath, 'dist', 'en_US.dic'));
+    spellChecker = nspell({ aff, dic }) as SpellChecker;
+  } catch {
+    // Dictionary files not present (e.g. first run before build) — spell check disabled
+  }
+}
+
+const WORD_RE = /\b[A-Za-z]+\b/g;
+
+function checkSpelling(text: string): Array<{ start: number; end: number }> {
+  if (!spellChecker) return [];
+  const results: Array<{ start: number; end: number }> = [];
+  let match: RegExpExecArray | null;
+  WORD_RE.lastIndex = 0;
+  while ((match = WORD_RE.exec(text)) !== null) {
+    const word = match[0];
+    // Skip ALL-CAPS (abbreviations: API, URL, etc.)
+    if (word.length > 1 && word === word.toUpperCase()) continue;
+    if (!spellChecker.correct(word)) {
+      results.push({ start: match.index, end: match.index + word.length });
+    }
+  }
+  return results;
+}
 
 function getNonce(): string {
   let text = '';
@@ -37,7 +74,9 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
     private readonly context: vscode.ExtensionContext,
     private readonly noteGraph: NoteGraph,
     private readonly graphProvider: GraphProvider
-  ) {}
+  ) {
+    loadSpellChecker(context.extensionPath);
+  }
 
   /** Send the current list of real (non-ghost) note names to every open editor. */
   broadcastNotesList(): void {
@@ -90,6 +129,30 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
         case 'edit':
           await this.applyEdit(document, msg.blocks as string[]);
           break;
+
+        case 'getSuggestions': {
+          const suggestions = spellChecker
+            ? spellChecker.suggest(msg.word as string).slice(0, 6)
+            : [];
+          webviewPanel.webview.postMessage({ type: 'suggestions', word: msg.word, suggestions });
+          break;
+        }
+
+        case 'spellCheck': {
+          const text = msg.text as string;
+          const blockIndex = msg.blockIndex as number;
+          // Don't spell-check code blocks
+          const misspelled = text.trimStart().startsWith('```')
+            ? []
+            : checkSpelling(text);
+          webviewPanel.webview.postMessage({
+            type: 'spellCheckResult',
+            blockIndex,
+            text,
+            misspelled,
+          });
+          break;
+        }
       }
     });
 

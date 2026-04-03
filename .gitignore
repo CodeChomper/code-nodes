@@ -5,3 +5,4 @@ dist/
 .claude
 init_prompt.md
 .vscode/
+tmp_images/

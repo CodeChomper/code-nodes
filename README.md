@@ -51,7 +51,7 @@ Open the graph with the toolbar button or the command palette.
 
 | Action | How |
 |---|---|
-| Open graph | Click the graph icon in the editor toolbar, or run `Code Nodes: Open Graph View` |
+| Open graph | `Ctrl + Alt + G`, or Click the graph icon in the editor toolbar, or run `Code Nodes: Open Graph View` |
 | Open a note | Click its node |
 | Create a linked note | Click a ghost node (grey) |
 | Rearrange nodes | Drag any node |
