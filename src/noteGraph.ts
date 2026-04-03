@@ -74,8 +74,15 @@ export class NoteGraph {
     const displayName = path.basename(uri.fsPath, '.md');
     const id = normalizeNoteName(displayName);
 
-    this.nodes.delete(id);
-    this.edges = this.edges.filter(e => e.source !== id && e.target !== id);
+    // Demote to ghost so nodes that other notes still link to remain visible.
+    // pruneOrphanedGhosts will remove it if nothing links to it.
+    const existing = this.nodes.get(id);
+    if (existing) {
+      this.nodes.set(id, { ...existing, uri: '', isGhost: true, isActive: false });
+    }
+
+    // Remove outgoing edges — this file's wiki-links no longer exist
+    this.edges = this.edges.filter(e => e.source !== id);
 
     this.pruneOrphanedGhosts();
     this.recalcConnectionCounts();

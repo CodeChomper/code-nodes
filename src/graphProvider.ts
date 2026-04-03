@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
+import { execSync } from 'child_process';
 import { NoteGraph } from './noteGraph';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -286,6 +288,16 @@ export class GraphProvider {
     }, 1500);
   }
 
+  private buildFrontmatter(displayName: string): string {
+    let author = os.userInfo().username;
+    try {
+      author = execSync('git config user.name', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || author;
+    } catch { /* git not available or not configured — use OS username */ }
+
+    const date = new Date().toISOString().slice(0, 10);
+    return `---\nFile Name: ${displayName}\nAuthor: ${author}\nCreate Date: ${date}\n---\n\n# ${displayName}\n`;
+  }
+
   private async openNote(displayName: string): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
@@ -300,7 +312,8 @@ export class GraphProvider {
     try {
       await vscode.workspace.fs.stat(uri);
     } catch {
-      await vscode.workspace.fs.writeFile(uri, new Uint8Array());
+      const frontmatter = this.buildFrontmatter(displayName);
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(frontmatter, 'utf-8'));
     }
 
     await vscode.commands.executeCommand(

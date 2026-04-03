@@ -170,7 +170,6 @@ function createBlockElement(index) {
   textarea.className = 'block-editor';
   textarea.value = blocks[index];
   textarea.rows = 1;
-
   blockEl.appendChild(handle);
   blockEl.appendChild(rendered);
   blockEl.appendChild(textarea);
