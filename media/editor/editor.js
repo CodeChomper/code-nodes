@@ -369,10 +369,35 @@ function renderFrontmatter(md) {
 function renderMarkdown(md) {
   if (isFrontmatterBlock(md)) return renderFrontmatter(md);
   const html = marked.parse(md || '');
-  return html.replace(/\[\[([^\[\]]+)\]\]/g, (_, target) => {
-    const escaped = target.replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    return `<span class="wiki-link" data-target="${escaped}">[[${escaped}]]</span>`;
+  return html
+    .replace(/\[\[([^\[\]]+)\]\]/g, (_, target) => {
+      const escaped = target.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      return `<span class="wiki-link" data-target="${escaped}">[[${escaped}]]</span>`;
+    })
+    .replace(/<input([^>]*?)disabled([^>]*?)>/g, '<input$1$2>');
+}
+
+function toggleCheckbox(blockIndex, checkboxEl) {
+  const blockEl = getBlockEl(blockIndex);
+  if (!blockEl) return;
+
+  const allCheckboxes = [...blockEl.querySelectorAll('.block-rendered input[type="checkbox"]')];
+  const nth = allCheckboxes.indexOf(checkboxEl);
+  if (nth === -1) return;
+
+  let count = 0;
+  const newMd = blocks[blockIndex].replace(/^(\s*(?:[-*+]|\d+\.)\s+)\[([ xX])\]/gm, (match, prefix, state) => {
+    if (count === nth) {
+      count++;
+      return prefix + (state.trim() === '' ? '[x]' : '[ ]');
+    }
+    count++;
+    return match;
   });
+
+  blocks[blockIndex] = newMd;
+  blockEl.querySelector('.block-rendered').innerHTML = renderMarkdown(newMd);
+  sendEdit();
 }
 
 // ─── Block DOM ────────────────────────────────────────────────────────────────
@@ -405,7 +430,15 @@ function createBlockElement(index) {
   blockEl.appendChild(rendered);
   blockEl.appendChild(editor);
 
-  rendered.addEventListener('click', () => enterEditMode(index));
+  rendered.addEventListener('click', e => {
+    const checkbox = e.target.closest('input[type="checkbox"]');
+    if (checkbox) {
+      e.preventDefault();
+      toggleCheckbox(index, checkbox);
+      return;
+    }
+    enterEditMode(index);
+  });
 
   editor.addEventListener('input', () => {
     // Autocomplete
@@ -724,15 +757,21 @@ function handleEditorKeydown(e, index) {
     const before = value.slice(0, curPos);
     const after = value.slice(curPos);
 
+    // Detect a list prefix on the current line (e.g. "- ", "* ", "+ ")
+    const currentLine = before.split('\n').pop();
+    const listMatch = currentLine.match(/^(\s*[-*+] )/);
+    const listPrefix = listMatch ? listMatch[1] : '';
+
     if (before.trim() && after.trim()) {
       exitEditModeNoSend(index);
       blocks[index] = before.trimEnd();
-      blocks.splice(index + 1, 0, after.trimStart());
+      blocks.splice(index + 1, 0, listPrefix + after.trimStart());
       sendEdit();
       renderAll();
       setTimeout(() => enterEditMode(index + 1), 0);
     } else {
-      insertAtCursor('\n');
+      document.execCommand('insertLineBreak');
+      if (listPrefix) document.execCommand('insertText', false, listPrefix);
     }
   }
 }

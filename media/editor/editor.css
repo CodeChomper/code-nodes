@@ -130,6 +130,40 @@ body {
 .block-rendered tr:nth-child(even) td {
   background: rgba(255,255,255,0.03);
 }
+/* Task list checkboxes */
+.block-rendered input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 2px solid #e08020;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-right: 4px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.block-rendered input[type="checkbox"]:checked {
+  border-color: #3a9e5c;
+  background: #3a9e5c;
+}
+
+.block-rendered input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: -1px;
+  width: 5px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
 /* Wiki-link highlight */
 .wiki-link {
   color: var(--vscode-textLink-foreground, #3794ff);
