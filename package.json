@@ -3,8 +3,9 @@
   "displayName": "Code Nodes",
   "publisher": "CodeChomper",
   "repository": "https://github.com/CodeChomper/code-nodes",
+  "icon": "icon.png",
   "description": "Block-based markdown editor with wiki-link graph visualization",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "engines": {
     "vscode": "^1.90.0"
   },

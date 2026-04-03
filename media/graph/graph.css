@@ -18,6 +18,7 @@ body {
 #cy-container {
   flex: 1;
   min-height: 0; /* Required for cytoscape to size correctly inside flexbox */
+  background-image: radial-gradient(circle, #292929 1px, transparent 1px);
 }
 
 #legend {
@@ -62,13 +63,33 @@ body {
 }
 
 #controls input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 80px;
-  accent-color: #bf4e30;
+  background: transparent;
+  --slider-fill: 0%;
 }
 
 #controls input[type="range"]::-webkit-slider-runnable-track {
-  background: #666666;
-  border-radius: 2px;
+  height: 4px;
+  border-radius: 100px;
+  background: linear-gradient(
+    to right,
+    #bf4e30 var(--slider-fill),
+    #666666 var(--slider-fill)
+  );
+}
+
+#controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #bf4e30;
+  cursor: pointer;
+  /* centre the 14px thumb on the 4px track: -((14-4)/2) = -5px */
+  margin-top: -5px;
 }
 
 #fit-btn {

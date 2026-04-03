@@ -112,6 +112,24 @@ body {
 .block-rendered a {
   color: var(--vscode-textLink-foreground, #3794ff);
 }
+.block-rendered table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 6px 0;
+}
+.block-rendered th,
+.block-rendered td {
+  padding: 5px 14px;
+  border: 1px solid var(--vscode-panel-border, rgba(255,255,255,0.12));
+  text-align: left;
+}
+.block-rendered th {
+  background: var(--vscode-editor-inactiveSelectionBackground, rgba(255,255,255,0.06));
+  font-weight: 600;
+}
+.block-rendered tr:nth-child(even) td {
+  background: rgba(255,255,255,0.03);
+}
 /* Wiki-link highlight */
 .wiki-link {
   color: var(--vscode-textLink-foreground, #3794ff);

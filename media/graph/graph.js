@@ -179,6 +179,19 @@ function initCytoscape() {
   }
   cy.on('zoom', updateLabelVisibility);
 
+  // ── Dot grid background — tracks pan & zoom so the grid feels infinite ───
+  const BASE_GRID = 24; // px at zoom level 1
+  const cyContainer = document.getElementById('cy-container');
+  function updateGrid() {
+    const zoom = cy.zoom();
+    const pan  = cy.pan();
+    const size = BASE_GRID * zoom;
+    cyContainer.style.backgroundSize     = `${size}px ${size}px`;
+    cyContainer.style.backgroundPosition = `${pan.x % size}px ${pan.y % size}px`;
+  }
+  cy.on('zoom pan', updateGrid);
+  updateGrid(); // set initial state
+
   // ── Viewport persistence ──────────────────────────────────────────────────
   cy.on('zoom pan', scheduleViewportSave);
 
@@ -486,11 +499,20 @@ function runLayout() {
 
 const SLIDER_IDS = ['repulsion', 'gravity', 'edgeLength', 'damping'];
 
+/** Sync the orange fill on a range input to its current value. */
+function updateSliderFill(input) {
+  const min = parseFloat(input.min);
+  const max = parseFloat(input.max);
+  const val = parseFloat(input.value);
+  const pct = ((val - min) / (max - min)) * 100;
+  input.style.setProperty('--slider-fill', pct.toFixed(1) + '%');
+}
+
 function updateSliderUI(forces) {
   for (const id of SLIDER_IDS) {
     const input = document.getElementById(id);
     const valEl = document.getElementById(`${id}-val`);
-    if (input) input.value = forces[id];
+    if (input) { input.value = forces[id]; updateSliderFill(input); }
     if (valEl) valEl.textContent = forces[id];
   }
 }
@@ -500,6 +522,7 @@ for (const id of SLIDER_IDS) {
   if (!input) continue;
   input.addEventListener('input', () => {
     const raw = parseFloat(input.value);
+    updateSliderFill(input);
     currentForces[id] = raw;
     const valEl = document.getElementById(`${id}-val`);
     if (valEl) valEl.textContent = raw;
