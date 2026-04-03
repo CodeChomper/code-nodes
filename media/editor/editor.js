@@ -450,7 +450,22 @@ function createBlockElement(index) {
   // Paste: strip HTML, insert as plain text only
   editor.addEventListener('paste', e => {
     e.preventDefault();
-    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+    const text = e.clipboardData.getData('text/plain');
+    if (!text) return;
+    // execCommand integrates with the native undo stack
+    if (!document.execCommand('insertText', false, text)) {
+      // Fallback for environments where execCommand is unsupported
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(text);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
   });
 
   if (isFrontmatter) {
@@ -853,7 +868,7 @@ window.addEventListener('message', event => {
     if (!blockEl) return;
     const editor = blockEl.querySelector('.block-editor');
     if (!editor || editor.style.display === 'none') return;
-    if (getContent(editor) !== text) return; // content changed since request
+    if (getContent(editor, false) !== text) return; // content changed since request
     applySpellCheckMarks(editor, text, misspelled);
     return;
   }

@@ -21,7 +21,7 @@ function loadSpellChecker(extensionPath: string): void {
   }
 }
 
-const WORD_RE = /\b[A-Za-z]+\b/g;
+const WORD_RE = /\b[A-Za-z]+(?:'[A-Za-z]+)*\b/g;
 
 function checkSpelling(text: string): Array<{ start: number; end: number }> {
   if (!spellChecker) return [];
