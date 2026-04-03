@@ -9,6 +9,7 @@ const vscode = acquireVsCodeApi();
 // ─── State ────────────────────────────────────────────────────────────────────
 
 let cy = null;
+let hullSvg = null;
 let currentForces = {};
 let firstRender = true;
 let layoutTimer = null;
@@ -26,8 +27,17 @@ const LABEL_HIDE_ZOOM = 0.5;
 // ─── Cytoscape Init ───────────────────────────────────────────────────────────
 
 function initCytoscape() {
+  // SVG layer for group hull blobs — sits behind the Cytoscape canvas
+  const svgNS = 'http://www.w3.org/2000/svg';
+  hullSvg = document.createElementNS(svgNS, 'svg');
+  hullSvg.id = 'hull-svg';
+  hullSvg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;transition:opacity 0.5s ease-in;';
+  const cyContainer = document.getElementById('cy-container');
+  cyContainer.style.position = 'relative';
+  cyContainer.insertBefore(hullSvg, cyContainer.firstChild);
+
   cy = cytoscape({
-    container: document.getElementById('cy-container'),
+    container: cyContainer,
     style: [
       {
         selector: 'node',
@@ -181,7 +191,6 @@ function initCytoscape() {
 
   // ── Dot grid background — tracks pan & zoom so the grid feels infinite ───
   const BASE_GRID = 24; // px at zoom level 1
-  const cyContainer = document.getElementById('cy-container');
   function updateGrid() {
     const zoom = cy.zoom();
     const pan  = cy.pan();
@@ -194,6 +203,12 @@ function initCytoscape() {
 
   // ── Viewport persistence ──────────────────────────────────────────────────
   cy.on('zoom pan', scheduleViewportSave);
+
+  // ── Hull blob redraws ─────────────────────────────────────────────────────
+  cy.on('drag', 'node', redrawHulls);
+  cy.on('dragfree', 'node', redrawHulls);
+  cy.on('pan zoom', redrawHulls);
+  cy.on('layoutstop', redrawHulls);
 
   // ── Hover tooltip (shows full title at any zoom level) ───────────────────
   const tooltip = document.createElement('div');
@@ -283,6 +298,172 @@ function resolveOverlaps() {
   }
 }
 
+// ─── Hull Blobs ───────────────────────────────────────────────────────────────
+
+/** Gift-wrapping convex hull. Returns a subset of pts in CCW order. */
+function convexHull(pts) {
+  if (pts.length < 2) return pts;
+  const start = pts.reduce((a, b) => (b.x < a.x || (b.x === a.x && b.y < a.y) ? b : a));
+  const hull = [];
+  let cur = start;
+  do {
+    hull.push(cur);
+    let next = pts[0];
+    for (const p of pts) {
+      const cross = (next.x - cur.x) * (p.y - cur.y) - (next.y - cur.y) * (p.x - cur.x);
+      if (next === cur || cross < 0 || (cross === 0 && hullDist2(cur, p) > hullDist2(cur, next))) {
+        next = p;
+      }
+    }
+    cur = next;
+  } while (cur !== start && hull.length <= pts.length);
+  return hull;
+}
+
+function hullDist2(a, b) {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+}
+
+const svgNS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Draw a guaranteed-convex rounded hull using the Minkowski sum of the convex
+ * polygon with a disk of radius `padding`.
+ *
+ * Each edge is offset outward by `padding`; adjacent offset edges are joined
+ * by a circular arc at each original vertex. The result is always convex —
+ * no catmull-rom spline pulling inward at sharp corners.
+ */
+function drawBlob(svgEl, pts, padding, fillColor, strokeColor, label) {
+  if (pts.length === 0) return;
+
+  const applyStyle = el => {
+    el.setAttribute('fill', fillColor);
+    el.setAttribute('stroke', strokeColor);
+    el.setAttribute('stroke-width', '1.5');
+    el.setAttribute('stroke-dasharray', '5,4');
+    svgEl.appendChild(el);
+  };
+
+  if (pts.length === 1) {
+    const c = document.createElementNS(svgNS, 'circle');
+    c.setAttribute('cx', pts[0].x);
+    c.setAttribute('cy', pts[0].y);
+    c.setAttribute('r', padding);
+    applyStyle(c);
+    appendBlobLabel(svgEl, pts[0].x, pts[0].y - padding - 6, label);
+    return;
+  }
+
+  const n = pts.length;
+
+  // Centroid — used to orient outward normals
+  const centX = pts.reduce((s, p) => s + p.x, 0) / n;
+  const centY = pts.reduce((s, p) => s + p.y, 0) / n;
+
+  // For each edge A→B, compute the outward-facing offset endpoints.
+  const offsets = pts.map((A, i) => {
+    const B = pts[(i + 1) % n];
+    const edx = B.x - A.x, edy = B.y - A.y;
+    const elen = Math.sqrt(edx * edx + edy * edy) || 1;
+    // Perpendicular candidate (rotated 90° CW in screen coords)
+    let nx = edy / elen, ny = -edx / elen;
+    // Flip if it points toward the centroid instead of away from it
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+    if (nx * (mx - centX) + ny * (my - centY) < 0) { nx = -nx; ny = -ny; }
+    return {
+      sx: A.x + nx * padding, sy: A.y + ny * padding, // offset start (at vertex A)
+      ex: B.x + nx * padding, ey: B.y + ny * padding, // offset end   (at vertex B)
+    };
+  });
+
+  // Build the path: for each edge, draw the offset line, then a circular arc
+  // at the next vertex connecting this edge's end to the next edge's start.
+  // sweep-flag=1 keeps arcs on the outside of each corner.
+  let topY = Infinity, topX = centX;
+  const d = [`M ${offsets[0].sx} ${offsets[0].sy}`];
+
+  for (let i = 0; i < n; i++) {
+    const o    = offsets[i];
+    const next = offsets[(i + 1) % n];
+    d.push(`L ${o.ex} ${o.ey}`);
+    d.push(`A ${padding} ${padding} 0 0 1 ${next.sx} ${next.sy}`);
+    if (o.sy < topY) { topY = o.sy; topX = o.sx; }
+    if (o.ey < topY) { topY = o.ey; topX = o.ex; }
+  }
+  d.push('Z');
+
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('d', d.join(' '));
+  applyStyle(path);
+  appendBlobLabel(svgEl, topX, topY - 8, label);
+}
+
+function appendBlobLabel(svgEl, x, y, label) {
+  const text = document.createElementNS(svgNS, 'text');
+  text.setAttribute('x', x);
+  text.setAttribute('y', y);
+  text.setAttribute('text-anchor', 'middle');
+  text.setAttribute('fill', '#6aab4a');
+  text.setAttribute('font-size', '10');
+  text.setAttribute('font-family', 'sans-serif');
+  text.textContent = label;
+  svgEl.appendChild(text);
+}
+
+const GROUP_COLORS = [
+  { fill: 'rgba(74,124,58,0.10)',  stroke: '#4a7c3a' },
+  { fill: 'rgba(58,90,124,0.10)',  stroke: '#3a5a7c' },
+  { fill: 'rgba(124,90,58,0.10)',  stroke: '#7c5a3a' },
+  { fill: 'rgba(110,58,124,0.10)', stroke: '#6e3a7c' },
+  { fill: 'rgba(58,124,110,0.10)', stroke: '#3a7c6e' },
+];
+const groupColorMap = {};
+let groupColorCounter = 0;
+
+function groupColor(groupName) {
+  if (!(groupName in groupColorMap)) {
+    groupColorMap[groupName] = groupColorCounter++ % GROUP_COLORS.length;
+  }
+  return GROUP_COLORS[groupColorMap[groupName]];
+}
+
+function redrawHulls() {
+  if (!hullSvg || !cy) return;
+  // Don't redraw during layout animation — hulls are hidden until layoutstop
+  if (activeLayout) return;
+
+  // Clear previous hulls
+  while (hullSvg.lastChild) hullSvg.removeChild(hullSvg.lastChild);
+
+  // Collect screen-space bounding box corners for each folder group
+  const byGroup = {};
+  cy.nodes().forEach(n => {
+    const g = n.data('group');
+    if (!g || n.data('isGhost')) return;
+    if (!byGroup[g]) byGroup[g] = [];
+    const pan  = cy.pan();
+    const zoom = cy.zoom();
+    const mp   = n.position();
+    const r    = (n.data('size') || 20) / 2;
+    // Include node centre + all four corners so the hull wraps the full circle
+    byGroup[g].push(
+      { x: mp.x * zoom + pan.x,       y: mp.y * zoom + pan.y       },
+      { x: (mp.x - r) * zoom + pan.x, y: (mp.y - r) * zoom + pan.y },
+      { x: (mp.x + r) * zoom + pan.x, y: (mp.y - r) * zoom + pan.y },
+      { x: (mp.x - r) * zoom + pan.x, y: (mp.y + r) * zoom + pan.y },
+      { x: (mp.x + r) * zoom + pan.x, y: (mp.y + r) * zoom + pan.y },
+    );
+  });
+
+  for (const [groupName, pts] of Object.entries(byGroup)) {
+    const hull = convexHull(pts);
+    const { fill, stroke } = groupColor(groupName);
+    const PADDING = Math.max(14, 18 * cy.zoom());
+    drawBlob(hullSvg, hull, PADDING, fill, stroke, groupName);
+  }
+}
+
 // ─── Graph Data ───────────────────────────────────────────────────────────────
 
 function nodeColor(node) {
@@ -319,11 +500,17 @@ function scheduleViewportSave() {
   }, 800);
 }
 
+function positionKey(node) {
+  const g = node.data('group') || '';
+  const d = node.data('displayName');
+  return g ? `${g}/${d}` : d;
+}
+
 function savePositions() {
   const positions = {};
   cy.nodes().forEach(n => {
     const pos = n.position();
-    positions[n.data('displayName')] = {
+    positions[positionKey(n)] = {
       x: +pos.x.toFixed(2),
       y: +pos.y.toFixed(2),
     };
@@ -355,6 +542,7 @@ function applyGraphData(data, forces, savedPositions, savedViewport) {
       data: {
         id: n.id,
         displayName: n.displayName,
+        group: n.group || '',
         color: nodeColor(n),
         size: nodeSize(n.connectionCount),
         isGhost:  n.isGhost  || false,
@@ -391,7 +579,7 @@ function applyGraphData(data, forces, savedPositions, savedViewport) {
 
     let newNodeCount = 0;
     cy.nodes().forEach(n => {
-      const saved = savedPositions[n.data('displayName')];
+      const saved = savedPositions[positionKey(n)];
       if (saved) {
         n.position({ x: saved.x, y: saved.y });
       } else {
@@ -416,6 +604,10 @@ function applyGraphData(data, forces, savedPositions, savedViewport) {
       cy.nodes().toggleClass('labels-hidden', cy.zoom() < LABEL_HIDE_ZOOM);
       applyPendingViewport();
       selectActiveNode();
+      if (hullSvg) hullSvg.style.opacity = '0';
+      redrawHulls();
+      // Small delay lets the browser register the opacity:0 before transitioning to 1
+      requestAnimationFrame(() => { if (hullSvg) hullSvg.style.opacity = '1'; });
     }
   } else {
     // No settings file yet — fall back to in-memory positions and run layout.
@@ -432,6 +624,12 @@ function runLayout() {
   if (activeLayout) {
     activeLayout.stop();
     activeLayout = null;
+  }
+
+  // Hide hulls for the duration of the animation
+  if (hullSvg) {
+    hullSvg.style.opacity = '0';
+    while (hullSvg.lastChild) hullSvg.removeChild(hullSvg.lastChild);
   }
 
   const isRandom = firstRender;
@@ -490,6 +688,9 @@ function runLayout() {
     selectActiveNode();
     // Persist final positions to graph_settings.jsonc
     savePositions();
+    // Draw hulls then fade them in (activeLayout is now null so redrawHulls will run)
+    redrawHulls();
+    if (hullSvg) hullSvg.style.opacity = '1';
   });
   layout.run();
   firstRender = false;

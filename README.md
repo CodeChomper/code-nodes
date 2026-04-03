@@ -30,6 +30,14 @@ Open the graph with the toolbar button or the command palette.
 - **Active note** highlighted in green
 - **Adjustable physics** — Repulsion, Gravity, Edge Length, and Energy sliders persist across sessions
 
+### Folder Groups
+
+Organise notes into subfolders inside your workspace. Code Nodes automatically groups them in the graph with a labelled hull outline around each folder's nodes.
+
+- **Any subfolder depth is supported** — `projects/Notes.md`, `projects/api/Reference.md`, etc.
+- **Groups fade in** after the graph finishes its layout animation
+- **Hulls update live** as you drag nodes around
+
 ---
 
 ## Usage
@@ -65,6 +73,14 @@ Open the graph with the toolbar button or the command palette.
 |---|---|
 | `Code Nodes: Open Graph View` | Opens the wiki-link graph beside the editor |
 | `Code Nodes: New Note` | Creates a new `.md` file and opens it |
+
+---
+
+## Wiki-Links
+
+`[[Note Name]]` links are resolved by filename across the entire workspace, regardless of which folder the file lives in. Moving a note into a subfolder never breaks existing links.
+
+> **Note name uniqueness** — each note name must be unique across your whole workspace, even across folders. If two files share the same name (e.g. `games/Notes.md` and `projects/Notes.md`), Code Nodes will warn you and only one will appear in the graph. Rename one of the files to resolve the conflict.
 
 ---
 

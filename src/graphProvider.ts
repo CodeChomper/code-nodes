@@ -220,7 +220,7 @@ export class GraphProvider {
           break;
 
         case 'openNote':
-          await this.openNote(msg.displayName as string);
+          await this.openNote(msg.nodeId as string);
           break;
 
         case 'saveForces':
@@ -298,7 +298,7 @@ export class GraphProvider {
     return `---\nFile Name: ${displayName}\nAuthor: ${author}\nCreate Date: ${date}\n---\n\n# ${displayName}\n`;
   }
 
-  private async openNote(displayName: string): Promise<void> {
+  private async openNote(nodeId: string): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       vscode.window.showErrorMessage(
@@ -307,11 +307,21 @@ export class GraphProvider {
       return;
     }
 
-    const uri = vscode.Uri.joinPath(workspaceFolder.uri, `${displayName}.md`);
+    const graphData = this.noteGraph.getGraphData();
+    const node = graphData.nodes.find(n => n.id === nodeId);
+
+    let uri: vscode.Uri;
+    if (node?.uri) {
+      uri = vscode.Uri.parse(node.uri);
+    } else {
+      const displayName = node?.displayName ?? nodeId;
+      uri = vscode.Uri.joinPath(workspaceFolder.uri, `${displayName}.md`);
+    }
 
     try {
       await vscode.workspace.fs.stat(uri);
     } catch {
+      const displayName = node?.displayName ?? nodeId;
       const frontmatter = this.buildFrontmatter(displayName);
       await vscode.workspace.fs.writeFile(uri, Buffer.from(frontmatter, 'utf-8'));
     }

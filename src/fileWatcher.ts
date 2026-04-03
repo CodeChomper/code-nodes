@@ -44,9 +44,10 @@ export class FileWatcher {
 
   private async readAndUpdate(uri: vscode.Uri): Promise<void> {
     try {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
       const bytes = await vscode.workspace.fs.readFile(uri);
       const content = new TextDecoder().decode(bytes);
-      this.noteGraph.updateFile(uri, content);
+      this.noteGraph.updateFile(uri, content, workspaceRoot);
     } catch {
       // File may have been deleted between the event and the read
     }

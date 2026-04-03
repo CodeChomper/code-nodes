@@ -6,6 +6,7 @@ export interface NoteNode {
   id: string;
   displayName: string;
   uri: string;
+  group: string;
   isGhost: boolean;
   isActive: boolean;
   connectionCount: number;
@@ -26,15 +27,34 @@ export class NoteGraph {
   private edges: NoteEdge[] = [];
   private activeNoteId: string | null = null;
 
-  updateFile(uri: vscode.Uri, content: string): void {
+  updateFile(uri: vscode.Uri, content: string, workspaceRoot?: vscode.Uri): void {
     const displayName = path.basename(uri.fsPath, '.md');
     const id = normalizeNoteName(displayName);
+
+    let group = '';
+    if (workspaceRoot) {
+      const rel = path.relative(workspaceRoot.fsPath, path.dirname(uri.fsPath));
+      group = rel === '.' ? '' : rel.split(path.sep).join('/');
+    }
+
+    // Warn if a different file with the same name already exists in the workspace.
+    // Duplicate note names are unsupported — the graph uses the display name as
+    // the unique identifier, so two files named Notes.md in different folders
+    // would collide on the same graph node.
+    const existing = this.nodes.get(id);
+    if (existing && !existing.isGhost && existing.uri !== uri.toString()) {
+      vscode.window.showWarningMessage(
+        `Code Nodes: "${displayName}.md" already exists elsewhere in your workspace. ` +
+        `Duplicate note names are not supported — rename one of the files to avoid conflicts.`
+      );
+    }
 
     // Upsert the real node
     this.nodes.set(id, {
       id,
       displayName,
       uri: uri.toString(),
+      group,
       isGhost: false,
       isActive: id === this.activeNoteId,
       connectionCount: 0,
@@ -52,12 +72,12 @@ export class NoteGraph {
           id: targetId,
           displayName: link.target,
           uri: '',
+          group: '',
           isGhost: true,
           isActive: false,
           connectionCount: 0,
         });
       }
-      // Avoid duplicate edges from the same source to the same target
       const alreadyExists = this.edges.some(
         e => e.source === id && e.target === targetId
       );
@@ -117,12 +137,15 @@ export class NoteGraph {
   }
 
   /**
-   * A stable string that changes only when nodes or edges are added/removed.
-   * Changes to isActive, connectionCount, or displayName do NOT affect this hash.
+   * A stable string that changes only when nodes or edges are added/removed,
+   * or when a file moves between folders (group change).
    * Used by GraphProvider to decide whether a full re-layout is needed.
    */
   getTopologyHash(): string {
-    const nodeIds = Array.from(this.nodes.keys()).sort().join(',');
+    const nodeIds = Array.from(this.nodes.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([id, n]) => `${id}:${n.group}`)
+      .join(',');
     const edgeKeys = this.edges
       .map(e => `${e.source}->${e.target}`)
       .sort()
