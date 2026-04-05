@@ -113,6 +113,14 @@ function initCytoscape() {
         selector: 'node.labels-hidden',
         style: { 'label': '' },
       },
+      {
+        selector: 'node.search-dim',
+        style: { 'opacity': 0.12 },
+      },
+      {
+        selector: 'edge.search-dim',
+        style: { 'opacity': 0.06 },
+      },
     ],
     wheelSensitivity: 0.3,
     minZoom: 0.1,
@@ -893,9 +901,84 @@ window.addEventListener('message', event => {
   const msg = event.data;
   if (msg.type === 'graphData') {
     applyGraphData(msg.data, msg.forces, msg.savedPositions, msg.savedViewport);
+    applySearch();
   } else if (msg.type === 'graphUpdate') {
     updateNodeVisuals(msg.data);
+    applySearch();
+  } else if (msg.type === 'searchResults') {
+    searchInput.classList.remove('searching');
+    searchMatchingIds = msg.matchingIds ? new Set(msg.matchingIds) : null;
+    applySearch();
   }
+});
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+// null  → no active search (all nodes visible)
+// Set   → only these node IDs matched; everything else is dimmed
+let searchMatchingIds = null;
+let searchDebounceTimer = null;
+
+function applySearch() {
+  if (!cy) return;
+  if (searchMatchingIds === null) {
+    cy.elements().removeClass('search-dim');
+    return;
+  }
+  cy.nodes().forEach(n => {
+    n.toggleClass('search-dim', !searchMatchingIds.has(n.id()));
+  });
+  cy.edges().forEach(e => {
+    e.toggleClass(
+      'search-dim',
+      e.source().hasClass('search-dim') && e.target().hasClass('search-dim')
+    );
+  });
+}
+
+function clearSearch() {
+  clearTimeout(searchDebounceTimer);
+  searchInput.value = '';
+  searchClear.style.display = 'none';
+  searchInput.classList.remove('searching');
+  searchMatchingIds = null;
+  applySearch();
+  // Cancel any in-flight search on the extension side
+  vscode.postMessage({ type: 'search', term: '' });
+}
+
+const searchInput = document.getElementById('search-input');
+const searchClear = document.getElementById('search-clear');
+
+searchInput.addEventListener('input', () => {
+  const term = searchInput.value;
+  searchClear.style.display = term ? 'inline-block' : 'none';
+
+  clearTimeout(searchDebounceTimer);
+
+  if (!term) {
+    clearSearch();
+    return;
+  }
+
+  // Show pulsing border while waiting for results
+  searchInput.classList.add('searching');
+
+  searchDebounceTimer = setTimeout(() => {
+    vscode.postMessage({ type: 'search', term });
+  }, 300);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    clearSearch();
+    searchInput.blur();
+  }
+});
+
+searchClear.addEventListener('click', () => {
+  clearSearch();
+  searchInput.focus();
 });
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

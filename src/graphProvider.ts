@@ -174,6 +174,8 @@ export class GraphProvider {
   private settings: GraphSettings = { forces: { ...DEFAULT_FORCES }, positions: {}, viewport: { ...DEFAULT_VIEWPORT } };
   /** Debounce timer for file writes. */
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Cancellation source for the current in-flight content search. */
+  private searchCts: vscode.CancellationTokenSource | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -237,10 +239,59 @@ export class GraphProvider {
           this.settings.viewport = msg.viewport as GraphViewport;
           this.scheduleSave();
           break;
+
+        case 'search': {
+          const term = (msg.term as string).trim();
+
+          // Cancel any in-flight search
+          this.searchCts?.cancel();
+          this.searchCts?.dispose();
+          this.searchCts = undefined;
+
+          if (!term) {
+            this.panel?.webview.postMessage({ type: 'searchResults', matchingIds: null });
+            break;
+          }
+
+          this.searchCts = new vscode.CancellationTokenSource();
+          const token = this.searchCts.token;
+
+          const graphData = this.noteGraph.getGraphData();
+          const termLower = term.toLowerCase();
+
+          // Seed with display-name matches (no I/O required)
+          const matchingIds = new Set<string>(
+            graphData.nodes
+              .filter(n => n.displayName.toLowerCase().includes(termLower))
+              .map(n => n.id)
+          );
+
+          // Read every real note file in parallel and check its content
+          const realNodes = graphData.nodes.filter(n => !n.isGhost && n.uri);
+          await Promise.all(realNodes.map(async n => {
+            if (token.isCancellationRequested) { return; }
+            try {
+              const bytes = await vscode.workspace.fs.readFile(vscode.Uri.parse(n.uri));
+              const text = Buffer.from(bytes).toString('utf-8').toLowerCase();
+              if (text.includes(termLower)) { matchingIds.add(n.id); }
+            } catch { /* unreadable file — skip */ }
+          }));
+
+          if (!token.isCancellationRequested) {
+            this.panel?.webview.postMessage({
+              type: 'searchResults',
+              matchingIds: Array.from(matchingIds),
+            });
+          }
+          break;
+        }
       }
     });
 
     this.panel.onDidDispose(() => {
+      this.searchCts?.cancel();
+      this.searchCts?.dispose();
+      this.searchCts = undefined;
       this.panel = undefined;
       this.lastTopologyHash = '';
     });
@@ -360,6 +411,10 @@ export class GraphProvider {
   <title>Code Nodes Graph</title>
 </head>
 <body>
+  <div id="search-bar">
+    <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off" spellcheck="false">
+    <button id="search-clear" title="Clear search (Esc)">✕</button>
+  </div>
   <div id="cy-container"></div>
   <div id="legend">
     <span class="dot active"></span>Open
