@@ -63,6 +63,47 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // Command: open or create today's daily note
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codeNodes.dailyNote', async () => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage(
+          'Code Nodes: No workspace folder open. Please open a folder first.'
+        );
+        return;
+      }
+
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const fileName = `${yyyy}-${mm}-${dd}.md`;
+
+      const dailyDir = vscode.Uri.joinPath(workspaceFolder.uri, 'daily');
+      const uri = vscode.Uri.joinPath(dailyDir, fileName);
+
+      try {
+        await vscode.workspace.fs.stat(uri);
+        // File already exists — just open it
+      } catch {
+        await vscode.workspace.fs.createDirectory(dailyDir);
+        const heading = now.toLocaleDateString('en-US', {
+          month: 'long', day: 'numeric', year: 'numeric',
+        });
+        const content = `# ${heading}\n\n`;
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
+      }
+
+      await vscode.commands.executeCommand(
+        'vscode.openWith',
+        uri,
+        'codeNodes.markdownEditor',
+        vscode.ViewColumn.One
+      );
+    })
+  );
+
   // Kick off initial workspace scan + set up file watching
   fileWatcher.start(context);
 }

@@ -1,11 +1,11 @@
 {
   "name": "code-nodes",
   "displayName": "Code Nodes",
-  "publisher": "CodeChomper",
+  "publisher": "045312ad-b451-6745-8c62-6eb783d7df1b",
   "repository": "https://github.com/CodeChomper/code-nodes",
   "icon": "icon.png",
   "description": "Block-based markdown editor with wiki-link graph visualization",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -37,6 +37,10 @@
       {
         "command": "codeNodes.newNote",
         "title": "Code Nodes: New Note"
+      },
+      {
+        "command": "codeNodes.dailyNote",
+        "title": "Code Nodes: Today's Note"
       }
     ],
     "keybindings": [
@@ -44,6 +48,11 @@
         "command": "codeNodes.openGraph",
         "key": "ctrl+alt+g",
         "mac": "cmd+alt+g"
+      },
+      {
+        "command": "codeNodes.dailyNote",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
       }
     ],
     "menus": {
