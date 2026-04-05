@@ -115,6 +115,10 @@ body {
   color: var(--vscode-editor-foreground, #ccc);
 }
 
+/* Group drag cursor states */
+#cy-container.group-hoverable canvas { cursor: grab !important; }
+#cy-container.group-dragging  canvas { cursor: grabbing !important; }
+
 /* Node hover tooltip */
 #node-tooltip {
   display: none;

@@ -17,6 +17,7 @@ let activeLayout = null;
 let dragLastPos = null;
 let pendingViewport = null;   // viewport to restore after the next layout/overlap pass
 let viewportSaveTimer = null; // debounce handle for saveViewport messages
+let hullPolygons = {};        // { groupName: { pts: [...screen pts], padding } } — for group drag hit-testing
 
 // How strongly connected nodes follow the dragged node (0 = none, 1 = perfectly track)
 const SPRING_FACTOR = 0.28;
@@ -244,6 +245,94 @@ function initCytoscape() {
 
   // Hide tooltip while dragging so it doesn't get in the way
   cy.on('grabon', () => { tooltip.style.display = 'none'; });
+
+  // ── Group drag ────────────────────────────────────────────────────────────
+  // Clicking empty space inside a group hull drags all nodes in that group.
+  // Clicking outside any group reverts to normal cytoscape panning.
+
+  let groupDragState = null;
+
+  /** True if there is a cytoscape node whose circle contains (graphX, graphY). */
+  function nodeAtGraphPoint(graphX, graphY) {
+    return cy.nodes().some(n => {
+      const pos = n.position();
+      const r = (n.data('size') || 20) / 2;
+      return (graphX - pos.x) ** 2 + (graphY - pos.y) ** 2 <= r * r;
+    });
+  }
+
+  // Capture phase so this fires before cytoscape's own listeners on the canvas.
+  cyContainer.addEventListener('mousedown', e => {
+    if (e.button !== 0) return; // left button only
+
+    const rect = cyContainer.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    // Pass through if a node is under the cursor (let cytoscape handle node drag)
+    const pan = cy.pan(), zoom = cy.zoom();
+    const graphX = (sx - pan.x) / zoom;
+    const graphY = (sy - pan.y) / zoom;
+    if (nodeAtGraphPoint(graphX, graphY)) return;
+
+    const group = groupAtScreenPoint(sx, sy);
+    if (!group) return; // empty canvas area — normal pan
+
+    // Intercept: stop the event reaching cytoscape so it never starts a pan
+    e.stopPropagation();
+
+    groupDragState = { groupName: group, lastX: e.clientX, lastY: e.clientY };
+    cyContainer.classList.remove('group-hoverable');
+    cyContainer.classList.add('group-dragging');
+    tooltip.style.display = 'none';
+
+    const onMove = me => {
+      if (!groupDragState) return;
+      const z = cy.zoom();
+      const dx = (me.clientX - groupDragState.lastX) / z;
+      const dy = (me.clientY - groupDragState.lastY) / z;
+      groupDragState.lastX = me.clientX;
+      groupDragState.lastY = me.clientY;
+
+      cy.nodes()
+        .filter(n => n.data('group') === groupDragState.groupName && !n.data('isGhost'))
+        .forEach(n => {
+          const pos = n.position();
+          n.position({ x: pos.x + dx, y: pos.y + dy });
+        });
+      redrawHulls();
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      groupDragState = null;
+      cyContainer.classList.remove('group-dragging');
+      resolveOverlaps();
+      savePositions();
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, true); // true = capture phase
+
+  // Show grab cursor when hovering inside a group but not over a node
+  cyContainer.addEventListener('mousemove', e => {
+    if (groupDragState) return; // already dragging — cursor handled above
+    const rect = cyContainer.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    const pan = cy.pan(), zoom = cy.zoom();
+    const graphX = (sx - pan.x) / zoom;
+    const graphY = (sy - pan.y) / zoom;
+
+    if (!nodeAtGraphPoint(graphX, graphY) && groupAtScreenPoint(sx, sy)) {
+      cyContainer.classList.add('group-hoverable');
+    } else {
+      cyContainer.classList.remove('group-hoverable');
+    }
+  });
 }
 
 // ─── Collision Avoidance ─────────────────────────────────────────────────────
@@ -322,6 +411,35 @@ function convexHull(pts) {
 
 function hullDist2(a, b) {
   return (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+}
+
+/** Ray-casting point-in-polygon test (works for any simple polygon). */
+function pointInPolygon(px, py, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Returns the group name if the screen-space point (sx, sy) is inside any
+ * group hull blob, otherwise returns null.
+ */
+function groupAtScreenPoint(sx, sy) {
+  for (const [groupName, { pts, padding }] of Object.entries(hullPolygons)) {
+    if (pts.length === 1) {
+      const dx = sx - pts[0].x, dy = sy - pts[0].y;
+      if (dx * dx + dy * dy <= padding * padding) return groupName;
+    } else if (pts.length >= 2 && pointInPolygon(sx, sy, pts)) {
+      return groupName;
+    }
+  }
+  return null;
 }
 
 const svgNS = 'http://www.w3.org/2000/svg';
@@ -433,7 +551,8 @@ function redrawHulls() {
   // Don't redraw during layout animation — hulls are hidden until layoutstop
   if (activeLayout) return;
 
-  // Clear previous hulls
+  // Clear previous hulls and stored polygons
+  hullPolygons = {};
   while (hullSvg.lastChild) hullSvg.removeChild(hullSvg.lastChild);
 
   // Collect screen-space bounding box corners for each folder group
@@ -460,6 +579,8 @@ function redrawHulls() {
     const hull = convexHull(pts);
     const { fill, stroke } = groupColor(groupName);
     const PADDING = Math.max(14, 18 * cy.zoom());
+    // Store screen-space hull for group drag hit-testing
+    hullPolygons[groupName] = { pts: hull, padding: PADDING };
     drawBlob(hullSvg, hull, PADDING, fill, stroke, groupName);
   }
 }
