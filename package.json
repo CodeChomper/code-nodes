@@ -1,7 +1,7 @@
 {
   "name": "code-nodes",
   "displayName": "Code Nodes",
-  "publisher": "045312ad-b451-6745-8c62-6eb783d7df1b",
+  "publisher": "CodeCHomper",
   "repository": "https://github.com/CodeChomper/code-nodes",
   "icon": "icon.png",
   "description": "Block-based markdown editor with wiki-link graph visualization",

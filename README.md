@@ -37,6 +37,25 @@ Organise notes into subfolders inside your workspace. Code Nodes automatically g
 - **Any subfolder depth is supported** — `projects/Notes.md`, `projects/api/Reference.md`, etc.
 - **Groups fade in** after the graph finishes its layout animation
 - **Hulls update live** as you drag nodes around
+- **Drag an entire group** by clicking and dragging inside the hull (but outside any individual node) — all nodes in the group move together
+
+### Full-Text Graph Search
+
+A search bar sits at the top of the graph panel and searches across both note names and note content.
+
+- **Type any term** to dim all nodes whose name and content don't contain a match
+- **Edges dim** automatically when both of their endpoints are dimmed
+- Matches **note names and file content** — useful when you know the topic but not which note covers it
+- **Pulsing border** on the input indicates a search is in progress
+- **Clear** with the ✕ button or press **Escape**
+
+### Daily Notes
+
+Quickly capture today's thoughts without interrupting your flow.
+
+- Opens (or creates) a note named after today's date in a `daily/` subfolder
+- Notes are pre-filled with a heading formatted as the full date (e.g. `# April 5, 2026`)
+- Each day gets its own file — previous daily notes are preserved
 
 ---
 
@@ -59,20 +78,24 @@ Organise notes into subfolders inside your workspace. Code Nodes automatically g
 
 | Action | How |
 |---|---|
-| Open graph | `Ctrl + Alt + G`, or Click the graph icon in the editor toolbar, or run `Code Nodes: Open Graph View` |
+| Open graph | `Ctrl + Alt + G`, or click the graph icon in the editor toolbar, or run `Code Nodes: Open Graph View` |
 | Open a note | Click its node |
 | Create a linked note | Click a ghost node (grey) |
 | Rearrange nodes | Drag any node |
+| Move a whole group | Click and drag inside a group hull (not on a node) |
+| Search notes | Type in the search bar at the top of the graph panel |
+| Clear search | Click ✕ or press Escape |
 | Adjust layout physics | Use the sliders in the bottom panel |
 | Zoom | Scroll wheel |
 | Pan | Click and drag the background |
 
 ### Commands
 
-| Command | Description |
-|---|---|
-| `Code Nodes: Open Graph View` | Opens the wiki-link graph beside the editor |
-| `Code Nodes: New Note` | Creates a new `.md` file and opens it |
+| Command | Shortcut | Description |
+|---|---|---|
+| `Code Nodes: Open Graph View` | `Ctrl + Alt + G` | Opens the wiki-link graph beside the editor |
+| `Code Nodes: New Note` | — | Creates a new `.md` file and opens it |
+| `Code Nodes: Open Daily Note` | `Ctrl + Alt + T` | Opens or creates today's daily note |
 
 ---
 
