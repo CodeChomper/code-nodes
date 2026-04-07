@@ -996,6 +996,17 @@ settingsToggle.addEventListener('click', () => {
   settingsToggle.classList.toggle('active', isOpen);
 });
 
+document.addEventListener('mousedown', e => {
+  if (
+    settingsPanel.classList.contains('open') &&
+    !settingsPanel.contains(e.target) &&
+    e.target !== settingsToggle
+  ) {
+    settingsPanel.classList.remove('open');
+    settingsToggle.classList.remove('active');
+  }
+}, true); // capture phase — fires before stopPropagation() in the group drag handler
+
 groupingToggle.addEventListener('change', () => {
   groupingEnabled = groupingToggle.checked;
   if (!groupingEnabled) {
