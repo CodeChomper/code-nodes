@@ -2,7 +2,7 @@
 /* global CodeNodesEditorVendor, acquireVsCodeApi */
 
 const vscode = acquireVsCodeApi();
-const { marked, hljs } = CodeNodesEditorVendor;
+const { marked, hljs, mermaid } = CodeNodesEditorVendor;
 
 // Configure marked: use highlight.js for fenced code blocks, gfm for wiki-friendly parsing
 marked.use({
@@ -10,12 +10,18 @@ marked.use({
   gfm: true,
   renderer: {
     code(code, lang) {
+      if (lang === 'mermaid') {
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<div class="mermaid-block">${escaped}</div>`;
+      }
       const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
       const highlighted = hljs.highlight(code, { language }).value;
       return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
     },
   },
 });
+
+mermaid.initialize({ startOnLoad: false, theme: 'dark' });
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -342,6 +348,11 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function runMermaid(el) {
+  const nodes = [...el.querySelectorAll('.mermaid-block')];
+  if (nodes.length) mermaid.run({ nodes });
+}
+
 function renderFrontmatter(md) {
   const inner = md
     .replace(/^---\r?\n/, '')
@@ -396,7 +407,9 @@ function toggleCheckbox(blockIndex, checkboxEl) {
   });
 
   blocks[blockIndex] = newMd;
-  blockEl.querySelector('.block-rendered').innerHTML = renderMarkdown(newMd);
+  const renderedEl = blockEl.querySelector('.block-rendered');
+  renderedEl.innerHTML = renderMarkdown(newMd);
+  runMermaid(renderedEl);
   sendEdit();
 }
 
@@ -418,6 +431,7 @@ function createBlockElement(index) {
   const rendered = document.createElement('div');
   rendered.className = 'block-rendered';
   rendered.innerHTML = renderMarkdown(blocks[index]);
+  runMermaid(rendered);
 
   // contenteditable div — required for JS spell check underlines
   const editor = document.createElement('div');
@@ -613,6 +627,7 @@ function exitEditMode(index) {
 
   const rendered = blockEl.querySelector('.block-rendered');
   rendered.innerHTML = renderMarkdown(newContent);
+  runMermaid(rendered);
   editor.style.display = 'none';
   rendered.style.display = 'block';
   blockEl.classList.remove('active');
@@ -631,6 +646,7 @@ function exitEditModeNoSend(index) {
   const rendered = blockEl.querySelector('.block-rendered');
   blocks[index] = getContent(editor);
   rendered.innerHTML = renderMarkdown(blocks[index]);
+  runMermaid(rendered);
   editor.style.display = 'none';
   rendered.style.display = 'block';
   blockEl.classList.remove('active');

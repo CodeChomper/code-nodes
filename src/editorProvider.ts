@@ -249,7 +249,8 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none';
                  script-src 'nonce-${nonce}';
-                 style-src ${webview.cspSource} 'unsafe-inline';">
+                 style-src ${webview.cspSource} 'unsafe-inline';
+                 img-src data: blob:;">
   <link rel="stylesheet" href="${editorCssUri}">
   <link rel="stylesheet" href="${hljsCssUri}">
   <title>Code Nodes Editor</title>

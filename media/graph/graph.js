@@ -18,6 +18,7 @@ let dragLastPos = null;
 let pendingViewport = null;   // viewport to restore after the next layout/overlap pass
 let viewportSaveTimer = null; // debounce handle for saveViewport messages
 let hullPolygons = {};        // { groupName: { pts: [...screen pts], padding } } — for group drag hit-testing
+let groupingEnabled = true;   // controlled by the "Show Groups" toggle in the settings panel
 
 // How strongly connected nodes follow the dragged node (0 = none, 1 = perfectly track)
 const SPRING_FACTOR = 0.28;
@@ -34,7 +35,6 @@ function initCytoscape() {
   hullSvg.id = 'hull-svg';
   hullSvg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;transition:opacity 0.5s ease-in;';
   const cyContainer = document.getElementById('cy-container');
-  cyContainer.style.position = 'relative';
   cyContainer.insertBefore(hullSvg, cyContainer.firstChild);
 
   cy = cytoscape({
@@ -282,6 +282,7 @@ function initCytoscape() {
     const graphX = (sx - pan.x) / zoom;
     const graphY = (sy - pan.y) / zoom;
     if (nodeAtGraphPoint(graphX, graphY)) return;
+    if (!groupingEnabled) return;
 
     const group = groupAtScreenPoint(sx, sy);
     if (!group) return; // empty canvas area — normal pan
@@ -327,6 +328,7 @@ function initCytoscape() {
   // Show grab cursor when hovering inside a group but not over a node
   cyContainer.addEventListener('mousemove', e => {
     if (groupDragState) return; // already dragging — cursor handled above
+    if (!groupingEnabled) { cyContainer.classList.remove('group-hoverable'); return; }
     const rect = cyContainer.getBoundingClientRect();
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
@@ -558,6 +560,7 @@ function redrawHulls() {
   if (!hullSvg || !cy) return;
   // Don't redraw during layout animation — hulls are hidden until layoutstop
   if (activeLayout) return;
+  if (!groupingEnabled) return;
 
   // Clear previous hulls and stored polygons
   hullPolygons = {};
@@ -979,6 +982,30 @@ searchInput.addEventListener('keydown', e => {
 searchClear.addEventListener('click', () => {
   clearSearch();
   searchInput.focus();
+});
+
+// ─── Settings panel toggle ────────────────────────────────────────────────────
+
+const settingsToggle  = document.getElementById('settings-toggle');
+const settingsPanel   = document.getElementById('settings-panel');
+const groupingToggle  = document.getElementById('grouping-toggle');
+const cyContainerEl   = document.getElementById('cy-container');
+
+settingsToggle.addEventListener('click', () => {
+  const isOpen = settingsPanel.classList.toggle('open');
+  settingsToggle.classList.toggle('active', isOpen);
+});
+
+groupingToggle.addEventListener('change', () => {
+  groupingEnabled = groupingToggle.checked;
+  if (!groupingEnabled) {
+    // Clear hulls and reset any group cursor / drag state
+    hullPolygons = {};
+    if (hullSvg) while (hullSvg.lastChild) hullSvg.removeChild(hullSvg.lastChild);
+    cyContainerEl.classList.remove('group-hoverable', 'group-dragging');
+  } else {
+    redrawHulls();
+  }
 });
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

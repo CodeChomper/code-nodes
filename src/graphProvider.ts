@@ -415,30 +415,41 @@ export class GraphProvider {
     <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off" spellcheck="false">
     <button id="search-clear" title="Clear search (Esc)">✕</button>
   </div>
-  <div id="cy-container"></div>
+  <div id="graph-area">
+    <div id="cy-container"></div>
+    <button id="settings-toggle" title="Graph settings">⚙</button>
+    <div id="settings-panel">
+      <div id="settings-panel-header">Graph Settings</div>
+      <label class="setting-toggle" for="grouping-toggle">
+        Show Groups
+        <span class="toggle-wrap">
+          <input type="checkbox" id="grouping-toggle" checked>
+          <span class="toggle-track"></span>
+        </span>
+      </label>
+      <label>Repulsion
+        <input type="range" id="repulsion" min="100" max="20000" step="100">
+        <span class="val" id="repulsion-val"></span>
+      </label>
+      <label>Gravity
+        <input type="range" id="gravity" min="0.01" max="1.0" step="0.01">
+        <span class="val" id="gravity-val"></span>
+      </label>
+      <label>Edge Length
+        <input type="range" id="edgeLength" min="30" max="600" step="10">
+        <span class="val" id="edgeLength-val"></span>
+      </label>
+      <label title="How much nodes move when re-settling (0 = frozen, 1 = full recompute)">Energy
+        <input type="range" id="damping" min="0.1" max="1.0" step="0.05">
+        <span class="val" id="damping-val"></span>
+      </label>
+    </div>
+  </div>
   <div id="legend">
+    <button id="fit-btn" title="Fit graph to window">⊞ Fit</button>
     <span class="dot active"></span>Open
     <span class="dot exists"></span>Exists
     <span class="dot ghost"></span>Ghost
-  </div>
-  <div id="controls">
-    <button id="fit-btn" title="Fit graph to window">⊞ Fit</button>
-    <label>Repulsion
-      <input type="range" id="repulsion" min="100" max="20000" step="100">
-      <span class="val" id="repulsion-val"></span>
-    </label>
-    <label>Gravity
-      <input type="range" id="gravity" min="0.01" max="1.0" step="0.01">
-      <span class="val" id="gravity-val"></span>
-    </label>
-    <label>Edge Length
-      <input type="range" id="edgeLength" min="30" max="600" step="10">
-      <span class="val" id="edgeLength-val"></span>
-    </label>
-    <label title="How much nodes move when re-settling (0 = frozen, 1 = full recompute)">Energy
-      <input type="range" id="damping" min="0.1" max="1.0" step="0.05">
-      <span class="val" id="damping-val"></span>
-    </label>
   </div>
   <script nonce="${nonce}" src="${vendorUri}"></script>
   <script nonce="${nonce}" src="${graphJsUri}"></script>
