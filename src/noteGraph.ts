@@ -26,9 +26,14 @@ export class NoteGraph {
   private nodes = new Map<string, NoteNode>();
   private edges: NoteEdge[] = [];
   private activeNoteId: string | null = null;
+  private batchMode = false;
 
   /** Fires whenever nodes, edges, or the active note change. */
   readonly onDidChange = new vscode.EventEmitter<void>();
+
+  /** Suppress individual change events during a bulk update. Call endBatch() to fire one event. */
+  beginBatch(): void { this.batchMode = true; }
+  endBatch(): void { this.batchMode = false; this.onDidChange.fire(); }
 
   updateFile(uri: vscode.Uri, content: string, workspaceRoot?: vscode.Uri): void {
     const displayName = path.basename(uri.fsPath, '.md');
@@ -91,7 +96,7 @@ export class NoteGraph {
 
     this.pruneOrphanedGhosts();
     this.recalcConnectionCounts();
-    this.onDidChange.fire();
+    if (!this.batchMode) this.onDidChange.fire();
   }
 
   removeFile(uri: vscode.Uri): void {
@@ -110,7 +115,7 @@ export class NoteGraph {
 
     this.pruneOrphanedGhosts();
     this.recalcConnectionCounts();
-    this.onDidChange.fire();
+    if (!this.batchMode) this.onDidChange.fire();
   }
 
   setActiveNote(uri: vscode.Uri | null): void {

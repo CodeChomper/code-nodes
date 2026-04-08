@@ -113,6 +113,11 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // Restore graph panel if it was open when VS Code was last closed
+  if (context.workspaceState.get<boolean>('graphOpen')) {
+    graphProvider.show();
+  }
+
   // Kick off initial workspace scan + set up file watching
   fileWatcher.start(context);
 }

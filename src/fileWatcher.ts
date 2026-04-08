@@ -21,7 +21,9 @@ export class FileWatcher {
       '**/*.md',
       '**/node_modules/**'
     );
+    this.noteGraph.beginBatch();
     await Promise.all(uris.map(uri => this.readAndUpdate(uri)));
+    this.noteGraph.endBatch();
   }
 
   private async onFileChange(uri: vscode.Uri): Promise<void> {

@@ -198,6 +198,8 @@ export class GraphProvider {
       return;
     }
 
+    this.context.workspaceState.update('graphOpen', true);
+
     this.panel = vscode.window.createWebviewPanel(
       'codeNodes.graph',
       'Code Nodes Graph',
@@ -298,6 +300,7 @@ export class GraphProvider {
       this.panel = undefined;
       this.webviewReady = false;
       this.lastTopologyHash = '';
+      this.context.workspaceState.update('graphOpen', false);
     });
   }
 
