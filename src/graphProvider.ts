@@ -169,6 +169,9 @@ export class GraphProvider {
   private panel: vscode.WebviewPanel | undefined;
   /** Last topology hash sent to the webview. Empty string forces a full layout on first open. */
   private lastTopologyHash = '';
+  /** True once the webview has sent 'ready' and settings have been loaded. Prevents
+   *  refresh() from sending graphData with empty savedPositions before readSettings() runs. */
+  private webviewReady = false;
   /** In-memory settings cache; kept in sync with the file. */
   private settings: GraphSettings = { forces: { ...DEFAULT_FORCES }, positions: {}, viewport: { ...DEFAULT_VIEWPORT } };
   /** Debounce timer for file writes. */
@@ -217,6 +220,7 @@ export class GraphProvider {
         case 'ready':
           // Load fresh settings from file before sending graph data
           this.settings = await readSettings();
+          this.webviewReady = true;
           this.sendGraphData();
           break;
 
@@ -292,17 +296,19 @@ export class GraphProvider {
       this.searchCts?.dispose();
       this.searchCts = undefined;
       this.panel = undefined;
+      this.webviewReady = false;
       this.lastTopologyHash = '';
     });
   }
 
   refresh(): void {
-    if (!this.panel) return;
+    if (!this.panel || !this.webviewReady) return;
     const data = this.noteGraph.getGraphData();
     const hash = this.noteGraph.getTopologyHash();
 
     if (hash !== this.lastTopologyHash) {
       this.lastTopologyHash = hash;
+      this.pruneStalePositions(data.nodes.map(n => n.group ? `${n.group}/${n.displayName}` : n.displayName));
       this.panel.webview.postMessage({
         type: 'graphData',
         data,
@@ -326,6 +332,17 @@ export class GraphProvider {
       savedPositions: this.settings.positions,
       savedViewport:  this.settings.viewport,
     });
+  }
+
+  /** Remove saved positions for nodes that no longer exist in the graph. */
+  private pruneStalePositions(activeDisplayNames: string[]): void {
+    const existing = new Set(activeDisplayNames);
+    const stale = Object.keys(this.settings.positions).filter(name => !existing.has(name));
+    if (stale.length === 0) return;
+    for (const name of stale) {
+      delete this.settings.positions[name];
+    }
+    this.scheduleSave();
   }
 
   /** Debounce file writes to 1.5 s so rapid slider moves / drags don't hammer the disk. */

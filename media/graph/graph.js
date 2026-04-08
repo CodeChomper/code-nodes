@@ -661,6 +661,15 @@ function selectActiveNode() {
 }
 
 function applyGraphData(data, forces, savedPositions, savedViewport) {
+  // Stop any layout that may still be running before replacing graph data.
+  // Without this, a layout started by a premature graphData message (sent before
+  // the webview finished loading) would keep activeLayout set, causing redrawHulls()
+  // to return early and groups to stay invisible on open.
+  if (activeLayout) {
+    activeLayout.stop();
+    activeLayout = null;
+  }
+
   savedPositions = savedPositions || {};
   // Store viewport for restoration after layout/overlap pass.
   // Clear it for full fresh layouts (fit:true will handle the camera itself).
