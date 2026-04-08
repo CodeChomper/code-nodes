@@ -795,7 +795,7 @@ function runLayout() {
     animationEasing: 'ease-in-out',
     fit: isRandom,
     padding: 60,
-    randomize: true,   // initial positions set manually above; fCoSE spreads from there
+    randomize: isRandom, // fresh layout: scatter first; incremental: respect existing positions
     nodeRepulsion: () => currentForces.repulsion,
     idealEdgeLength: () => currentForces.edgeLength,
     gravity: currentForces.gravity,
