@@ -451,6 +451,12 @@ function createBlockElement(index) {
       toggleCheckbox(index, checkbox);
       return;
     }
+    const wikiLink = e.target.closest('.wiki-link');
+    if (wikiLink) {
+      e.preventDefault();
+      vscode.postMessage({ type: 'openNote', noteName: wikiLink.dataset.target });
+      return;
+    }
     enterEditMode(index);
   });
 

@@ -349,7 +349,13 @@ export class GraphProvider {
     return `---\nFile Name: ${displayName}\nAuthor: ${author}\nCreate Date: ${date}\n---\n\n# ${displayName}\n`;
   }
 
-  private async openNote(nodeId: string): Promise<void> {
+  /** Open a note by its display name (wikilink target text). Creates the file if it doesn't exist. */
+  public async openNoteByDisplayName(displayName: string): Promise<void> {
+    const nodeId = displayName.replace(/\.md$/i, '').toLowerCase().trim();
+    await this.openNote(nodeId, displayName);
+  }
+
+  private async openNote(nodeId: string, fallbackDisplayName?: string): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       vscode.window.showErrorMessage(
@@ -365,7 +371,7 @@ export class GraphProvider {
     if (node?.uri) {
       uri = vscode.Uri.parse(node.uri);
     } else {
-      const displayName = node?.displayName ?? nodeId;
+      const displayName = node?.displayName ?? fallbackDisplayName ?? nodeId;
       uri = vscode.Uri.joinPath(workspaceFolder.uri, `${displayName}.md`);
     }
 

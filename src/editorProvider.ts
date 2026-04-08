@@ -153,6 +153,10 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
           });
           break;
         }
+
+        case 'openNote':
+          await this.graphProvider.openNoteByDisplayName(msg.noteName as string);
+          break;
       }
     });
 
