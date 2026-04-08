@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { NoteGraph } from './noteGraph';
-import { GraphProvider } from './graphProvider';
+import { openNoteByDisplayName } from './noteNavigator';
 
 // ─── Spell checker (module-level singleton, shared across all editor instances)
 
@@ -55,10 +55,9 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
 
   public static register(
     context: vscode.ExtensionContext,
-    noteGraph: NoteGraph,
-    graphProvider: GraphProvider
+    noteGraph: NoteGraph
   ): { provider: CodeNodesEditorProvider; disposable: vscode.Disposable } {
-    const provider = new CodeNodesEditorProvider(context, noteGraph, graphProvider);
+    const provider = new CodeNodesEditorProvider(context, noteGraph);
     const disposable = vscode.window.registerCustomEditorProvider(
       'codeNodes.markdownEditor',
       provider,
@@ -72,8 +71,7 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
 
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly noteGraph: NoteGraph,
-    private readonly graphProvider: GraphProvider
+    private readonly noteGraph: NoteGraph
   ) {
     loadSpellChecker(context.extensionPath);
   }
@@ -121,9 +119,6 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
             content: document.getText(),
           });
           this.noteGraph.setActiveNote(document.uri);
-          this.graphProvider.refresh();
-          // Send the initial notes list for autocomplete
-          this.broadcastNotesList();
           break;
 
         case 'edit':
@@ -155,7 +150,7 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
         }
 
         case 'openNote':
-          await this.graphProvider.openNoteByDisplayName(msg.noteName as string);
+          await openNoteByDisplayName(msg.noteName as string, this.noteGraph);
           break;
       }
     });
@@ -178,7 +173,6 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
     webviewPanel.onDidChangeViewState(e => {
       if (e.webviewPanel.active) {
         this.noteGraph.setActiveNote(document.uri);
-        this.graphProvider.refresh();
       }
     });
 
@@ -186,7 +180,6 @@ export class CodeNodesEditorProvider implements vscode.CustomTextEditorProvider 
       this.panels.delete(webviewPanel);
       changeSubscription.dispose();
       this.noteGraph.setActiveNote(null);
-      this.graphProvider.refresh();
     });
   }
 

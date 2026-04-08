@@ -1,14 +1,8 @@
 import * as vscode from 'vscode';
 import { NoteGraph } from './noteGraph';
-import { GraphProvider } from './graphProvider';
-import { CodeNodesEditorProvider } from './editorProvider';
 
 export class FileWatcher {
-  constructor(
-    private readonly noteGraph: NoteGraph,
-    private readonly graphProvider: GraphProvider,
-    private readonly editorProvider: CodeNodesEditorProvider
-  ) {}
+  constructor(private readonly noteGraph: NoteGraph) {}
 
   async start(context: vscode.ExtensionContext): Promise<void> {
     await this.scanAll();
@@ -17,11 +11,7 @@ export class FileWatcher {
 
     watcher.onDidCreate(uri => this.onFileChange(uri));
     watcher.onDidChange(uri => this.onFileChange(uri));
-    watcher.onDidDelete(uri => {
-      this.noteGraph.removeFile(uri);
-      this.graphProvider.refresh();
-      this.editorProvider.broadcastNotesList();
-    });
+    watcher.onDidDelete(uri => this.noteGraph.removeFile(uri));
 
     context.subscriptions.push(watcher);
   }
@@ -32,14 +22,10 @@ export class FileWatcher {
       '**/node_modules/**'
     );
     await Promise.all(uris.map(uri => this.readAndUpdate(uri)));
-    this.graphProvider.refresh();
-    this.editorProvider.broadcastNotesList();
   }
 
   private async onFileChange(uri: vscode.Uri): Promise<void> {
     await this.readAndUpdate(uri);
-    this.graphProvider.refresh();
-    this.editorProvider.broadcastNotesList();
   }
 
   private async readAndUpdate(uri: vscode.Uri): Promise<void> {

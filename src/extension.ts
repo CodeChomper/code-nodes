@@ -8,12 +8,21 @@ export function activate(context: vscode.ExtensionContext): void {
   const noteGraph = new NoteGraph();
   const graphProvider = new GraphProvider(context, noteGraph);
 
-  // Register the custom markdown editor (also get the provider instance for broadcasting)
   const { provider: editorProvider, disposable: editorDisposable } =
-    CodeNodesEditorProvider.register(context, noteGraph, graphProvider);
+    CodeNodesEditorProvider.register(context, noteGraph);
   context.subscriptions.push(editorDisposable);
 
-  const fileWatcher = new FileWatcher(noteGraph, graphProvider, editorProvider);
+  // Single reactive subscription: any graph/active-note change refreshes the graph
+  // and updates the autocomplete list in all open editors.
+  context.subscriptions.push(
+    noteGraph.onDidChange.event(() => {
+      graphProvider.refresh();
+      editorProvider.broadcastNotesList();
+    }),
+    noteGraph.onDidChange
+  );
+
+  const fileWatcher = new FileWatcher(noteGraph);
 
   // Command: open graph view beside the editor
   context.subscriptions.push(

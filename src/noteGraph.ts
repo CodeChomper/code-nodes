@@ -27,6 +27,9 @@ export class NoteGraph {
   private edges: NoteEdge[] = [];
   private activeNoteId: string | null = null;
 
+  /** Fires whenever nodes, edges, or the active note change. */
+  readonly onDidChange = new vscode.EventEmitter<void>();
+
   updateFile(uri: vscode.Uri, content: string, workspaceRoot?: vscode.Uri): void {
     const displayName = path.basename(uri.fsPath, '.md');
     const id = normalizeNoteName(displayName);
@@ -88,6 +91,7 @@ export class NoteGraph {
 
     this.pruneOrphanedGhosts();
     this.recalcConnectionCounts();
+    this.onDidChange.fire();
   }
 
   removeFile(uri: vscode.Uri): void {
@@ -106,6 +110,7 @@ export class NoteGraph {
 
     this.pruneOrphanedGhosts();
     this.recalcConnectionCounts();
+    this.onDidChange.fire();
   }
 
   setActiveNote(uri: vscode.Uri | null): void {
@@ -127,6 +132,7 @@ export class NoteGraph {
     } else {
       this.activeNoteId = null;
     }
+    this.onDidChange.fire();
   }
 
   getGraphData(): GraphData {
