@@ -20,7 +20,8 @@ function buildFrontmatter(displayName: string): string {
 async function openNote(
   nodeId: string,
   noteGraph: NoteGraph,
-  fallbackDisplayName?: string
+  fallbackDisplayName?: string,
+  folderUri?: vscode.Uri
 ): Promise<void> {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
@@ -38,7 +39,8 @@ async function openNote(
     uri = vscode.Uri.parse(node.uri);
   } else {
     const displayName = node?.displayName ?? fallbackDisplayName ?? nodeId;
-    uri = vscode.Uri.joinPath(workspaceFolder.uri, `${displayName}.md`);
+    const baseFolder = folderUri ?? workspaceFolder.uri;
+    uri = vscode.Uri.joinPath(baseFolder, `${displayName}.md`);
   }
 
   try {
@@ -69,7 +71,8 @@ export async function openNoteByDisplayName(
 /** Open a note by its graph node ID. Creates the file if it doesn't exist. */
 export async function openNoteById(
   nodeId: string,
-  noteGraph: NoteGraph
+  noteGraph: NoteGraph,
+  folderUri?: vscode.Uri
 ): Promise<void> {
-  await openNote(nodeId, noteGraph);
+  await openNote(nodeId, noteGraph, undefined, folderUri);
 }

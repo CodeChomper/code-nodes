@@ -199,6 +199,20 @@ export class GraphProvider {
           await openNoteById(msg.nodeId as string, this.noteGraph);
           break;
 
+        case 'createGhostNote': {
+          const graphData = this.noteGraph.getGraphData();
+          const edge = graphData.edges.find(e => e.target === (msg.nodeId as string));
+          let folderUri: vscode.Uri | undefined;
+          if (edge) {
+            const sourceNode = graphData.nodes.find(n => n.id === edge.source);
+            if (sourceNode?.uri) {
+              folderUri = vscode.Uri.joinPath(vscode.Uri.parse(sourceNode.uri), '..');
+            }
+          }
+          await openNoteById(msg.nodeId as string, this.noteGraph, folderUri);
+          break;
+        }
+
         case 'saveForces':
           this.config.forces = msg.forces as GraphForces;
           this.scheduleConfigSave();

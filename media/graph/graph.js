@@ -150,11 +150,13 @@ function initRenderer() {
   // Single click → select + highlight neighbors
   renderer.on('clickNode', ({ node }) => selectNode(node));
 
-  // Double click → open file in editor
+  // Double click → open file in editor (or create ghost note in same folder as linking document)
   renderer.on('doubleClickNode', ({ node, preventSigmaDefault }) => {
     preventSigmaDefault();
     const attrs = graph.getNodeAttributes(node);
-    if (!attrs.isGhost) {
+    if (attrs.isGhost) {
+      vscode.postMessage({ type: 'createGhostNote', nodeId: node, displayName: attrs.displayName });
+    } else {
       vscode.postMessage({ type: 'openNote', nodeId: node, displayName: attrs.displayName });
     }
   });
