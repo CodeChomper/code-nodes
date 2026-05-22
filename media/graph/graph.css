@@ -1,6 +1,4 @@
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -15,141 +13,224 @@ body {
   overflow: hidden;
 }
 
+/* ── Search bar ──────────────────────────────────────────────────────────────── */
+#search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--vscode-sideBar-background, #252526);
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  flex-shrink: 0;
+}
+
+#search-input {
+  flex: 1;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  border: 1px solid var(--vscode-input-border, #555555);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+#search-input:focus { border-color: #bf4e30; }
+
+#search-input.searching {
+  animation: search-pulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes search-pulse {
+  from { border-color: #bf4e30; }
+  to   { border-color: #555555; }
+}
+
+#search-input::placeholder { color: var(--vscode-input-placeholderForeground, #777); }
+
+#search-clear {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground, #888);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+#search-clear:hover {
+  color: var(--vscode-editor-foreground, #ccc);
+  background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.07));
+}
+
+/* ── Graph area (contains all overlays) ──────────────────────────────────────── */
 #graph-area {
   flex: 1;
   position: relative;
   min-height: 0;
+  overflow: hidden;
 }
 
-#cy-container {
+/* ── Sigma container ─────────────────────────────────────────────────────────── */
+#sigma-container {
   position: absolute;
   inset: 0;
   background-image: radial-gradient(circle, #292929 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-/* ── Settings toggle (gear button) ──────────────────────────────────────── */
-#settings-toggle {
+/* Make sigma's canvas fill the container */
+#sigma-container canvas {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 110;
+  top: 0;
+  left: 0;
+}
+
+/* ── Loading overlay ─────────────────────────────────────────────────────────── */
+#loading-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  background: var(--vscode-editor-background, #1a1a1a);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  pointer-events: none;
+}
+
+#loading-overlay p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #aaa);
+}
+
+.spinner {
   width: 28px;
   height: 28px;
+  border: 3px solid #3c3c3c;
+  border-top-color: #bf4e30;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────────── */
+#toolbar {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: var(--vscode-sideBar-background, #252526);
   border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+#toolbar button {
+  background: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   color: var(--vscode-descriptionForeground, #999);
   cursor: pointer;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 8px;
+  white-space: nowrap;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-#settings-toggle:hover {
+#toolbar button:hover {
   color: var(--vscode-editor-foreground, #ccc);
-  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.07));
+  background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.07));
+}
+
+#run-btn.active {
+  color: #bf4e30;
+  border-color: rgba(191,78,48,0.4);
+  background: rgba(191,78,48,0.1);
+}
+
+#fit-btn:hover { color: #8cc641; }
+
+.ghost-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  padding: 2px 4px;
+}
+
+.ghost-label input[type="checkbox"] {
+  accent-color: #bf4e30;
+  cursor: pointer;
+}
+
+.ghost-label:hover { color: var(--vscode-editor-foreground, #ccc); }
+
+/* Settings gear button inside toolbar */
+#settings-toggle {
+  font-size: 15px;
+  padding: 1px 6px;
 }
 
 #settings-toggle.active {
-  border-color: #bf4e30;
-  color: #bf4e30;
-  background: rgba(191, 78, 48, 0.10);
+  color: #bf4e30 !important;
+  border-color: rgba(191,78,48,0.5) !important;
+  background: rgba(191,78,48,0.1) !important;
 }
 
-/* ── Settings panel ──────────────────────────────────────────────────────── */
+/* ── Settings panel ──────────────────────────────────────────────────────────── */
 #settings-panel {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 230px;
-  height: 100%;
+  bottom: 50px;
+  left: 10px;
+  width: 220px;
   background: var(--vscode-sideBar-background, #252526);
-  border-left: 1px solid var(--vscode-panel-border, #3c3c3c);
-  z-index: 100;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  z-index: 105;
   display: flex;
   flex-direction: column;
   padding: 10px 14px 14px;
   gap: 10px;
-  transform: translateX(100%);
-  transition: transform 0.22s ease;
-  overflow-y: auto;
+  transform: translateY(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 #settings-panel.open {
-  transform: translateX(0);
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #settings-panel-header {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--vscode-descriptionForeground, #888);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  padding-bottom: 12px;
-  margin-top: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
   flex-shrink: 0;
-}
-
-/* ── Toggle switch ───────────────────────────────────────────────────────── */
-.setting-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground, #aaa);
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
-  cursor: pointer;
-  user-select: none;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.toggle-wrap {
-  position: relative;
-  width: 32px;
-  height: 17px;
-  flex-shrink: 0;
-}
-
-.toggle-wrap input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-
-.toggle-track {
-  position: absolute;
-  inset: 0;
-  background: #555;
-  border-radius: 999px;
-  transition: background 0.18s;
-}
-
-.toggle-track::before {
-  content: '';
-  position: absolute;
-  width: 13px;
-  height: 13px;
-  top: 2px;
-  left: 2px;
-  background: #ccc;
-  border-radius: 50%;
-  transition: transform 0.18s;
-}
-
-.toggle-wrap input:checked~.toggle-track {
-  background: #bf4e30;
-}
-
-.toggle-wrap input:checked~.toggle-track::before {
-  transform: translateX(15px);
 }
 
 #settings-panel label {
@@ -174,9 +255,7 @@ body {
 #settings-panel input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 100px;
-  background: linear-gradient(to right,
-      #bf4e30 var(--slider-fill),
-      #666666 var(--slider-fill));
+  background: linear-gradient(to right, #bf4e30 var(--slider-fill), #666 var(--slider-fill));
 }
 
 #settings-panel input[type="range"]::-webkit-slider-thumb {
@@ -190,6 +269,13 @@ body {
   margin-top: -5px;
 }
 
+.val {
+  min-width: 32px;
+  text-align: right;
+  color: var(--vscode-editor-foreground, #ccc);
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────────────── */
 #legend {
   display: flex;
   align-items: center;
@@ -198,6 +284,7 @@ body {
   background: var(--vscode-sideBar-background, #252526);
   border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
   font-size: 11px;
+  flex-shrink: 0;
 }
 
 .dot {
@@ -209,116 +296,11 @@ body {
   vertical-align: middle;
 }
 
-.dot.active {
-  background: #8cc641;
-}
+.dot.active { background: #8cc641; }
+.dot.exists { background: #bf4e30; }
+.dot.ghost  { background: #666666; }
 
-.dot.exists {
-  background: #bf4e30;
-}
-
-.dot.ghost {
-  background: #666666;
-}
-
-#fit-btn {
-  padding: 2px 10px;
-  font-size: 11px;
-  font-family: inherit;
-  color: #ffffff;
-  background: #4a8c2a;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-#fit-btn:hover {
-  background: #5aa832;
-}
-
-.val {
-  min-width: 32px;
-  text-align: right;
-  color: var(--vscode-editor-foreground, #ccc);
-}
-
-/* Search bar */
-#search-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: var(--vscode-sideBar-background, #252526);
-  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
-  flex-shrink: 0;
-}
-
-#search-input {
-  flex: 1;
-  background: var(--vscode-input-background, #3c3c3c);
-  color: var(--vscode-input-foreground, #cccccc);
-  border: 1px solid var(--vscode-input-border, #555555);
-  border-radius: 3px;
-  padding: 3px 8px;
-  font-size: 12px;
-  font-family: inherit;
-  outline: none;
-  min-width: 0;
-}
-
-#search-input:focus {
-  border-color: #bf4e30;
-}
-
-#search-input.searching {
-  border-color: #bf4e30;
-  animation: search-pulse 0.7s ease-in-out infinite alternate;
-}
-
-@keyframes search-pulse {
-  from {
-    border-color: #bf4e30;
-  }
-
-  to {
-    border-color: #555555;
-  }
-}
-
-#search-input::placeholder {
-  color: var(--vscode-input-placeholderForeground, #777);
-}
-
-#search-clear {
-  background: none;
-  border: none;
-  color: var(--vscode-descriptionForeground, #888);
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  padding: 2px 4px;
-  border-radius: 3px;
-  display: none;
-  flex-shrink: 0;
-}
-
-#search-clear:hover {
-  color: var(--vscode-editor-foreground, #ccc);
-  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.07));
-}
-
-/* Group drag cursor states */
-#cy-container.group-hoverable canvas {
-  cursor: grab !important;
-}
-
-#cy-container.group-dragging canvas {
-  cursor: grabbing !important;
-}
-
-/* Node hover tooltip */
+/* ── Node tooltip ────────────────────────────────────────────────────────────── */
 #node-tooltip {
   display: none;
   position: fixed;
@@ -329,9 +311,8 @@ body {
   border-radius: 4px;
   padding: 5px 9px;
   font-size: 12px;
-  line-height: 1.4;
   pointer-events: none;
   max-width: 280px;
   word-break: break-word;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
 }

@@ -6,3 +6,5 @@ dist/
 init_prompt.md
 .vscode/
 tmp_images/
+test/
+graph-plan.md

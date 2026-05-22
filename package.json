@@ -5,7 +5,7 @@
   "repository": "https://github.com/CodeChomper/code-nodes",
   "icon": "icon.png",
   "description": "Block-based markdown editor with wiki-link graph visualization",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -74,8 +74,6 @@
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.7.1",
-    "cytoscape": "^3.29.0",
-    "cytoscape-fcose": "^2.2.0",
     "dictionary-en": "^4.0.0",
     "esbuild": "^0.21.0",
     "highlight.js": "^11.11.1",
@@ -84,6 +82,9 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
-    "mermaid": "^11.14.0"
+    "graphology": "^0.26.0",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "mermaid": "^11.14.0",
+    "sigma": "^3.0.3"
   }
 }
